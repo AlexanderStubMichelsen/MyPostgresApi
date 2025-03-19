@@ -75,8 +75,8 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Item>().ToTable("items"); // Ensure lowercase table name
-        modelBuilder.Entity<User>().ToTable("users"); // Ensure lowercase table name
+        modelBuilder.HasDefaultSchema("maskinen"); // ✅ Ensure EF Core looks inside the correct schema
+        modelBuilder.Entity<User>().ToTable("users"); // ✅ Explicitly set table name
     }
 }
 
