@@ -134,3 +134,5 @@ C:\Users\alexa\Documents\GitHub\MyPostgresApi\obj\Debug\net9.0\MyPostgresApi.gen
 C:\Users\alexa\Documents\GitHub\MyPostgresApi\obj\Debug\net9.0\ref\MyPostgresApi.dll
 C:\Users\alexa\Documents\GitHub\MyPostgresApi\bin\Debug\net9.0\DotNetEnv.dll
 C:\Users\alexa\Documents\GitHub\MyPostgresApi\bin\Debug\net9.0\Sprache.dll
+C:\Users\alexa\Documents\GitHub\MyPostgresApi\obj\Debug\net9.0\MyPostgresApi.sourcelink.json
+C:\Users\alexa\Documents\GitHub\MyPostgresApi\bin\Debug\net9.0\BCrypt.Net-Next.dll
