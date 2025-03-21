@@ -15,20 +15,28 @@ using BCrypt.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Load .env variables
-Env.Load();
+// Load environment variables
+DotNetEnv.Env.Load();
 
-// Build the connection string from .env variables
-var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
-var connectionString = $"Host={Env.GetString("DB_HOST")};" +
+var isTesting = builder.Environment.EnvironmentName == "Testing";
+string connectionString;
+
+if (isTesting)
+{
+    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION");
+}
+else
+{
+    var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
+    connectionString = $"Host={Env.GetString("DB_HOST")};" +
                        $"Port={Env.GetString("DB_PORT")};" +
                        $"Database={Env.GetString("DB_NAME")};" +
                        $"Username={Env.GetString("DB_USER")};" +
                        $"Password={password}";
+}
 
-// Add services to the container
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString)); // PostgreSQL
+    options.UseNpgsql(connectionString));
 
 // ✅ Add CORS Policy
 builder.Services.AddCors(options =>
@@ -36,7 +44,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // ✅ Allow requests from React frontend
+            policy.WithOrigins("http://localhost:5173")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -56,38 +64,28 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ✅ Apply CORS Policy
 app.UseCors("AllowReactApp");
-
 app.UseRouting();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
 
-
-// ✅ Database Context
+// ✅ AppDbContext
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-    public DbSet<Item> Items { get; set; }
-    public DbSet<User> Users { get; set; } // ✅ Add Users table
+    public DbSet<User> Users { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("maskinen"); // ✅ Ensure EF Core looks inside the correct schema
-        modelBuilder.Entity<User>().ToTable("users"); // ✅ Explicitly set table name
+        modelBuilder.HasDefaultSchema("maskinen");
+        modelBuilder.Entity<User>().ToTable("users");
     }
 }
 
-// ✅ Models
-public class Item
-{
-    public int Id { get; set; }
-    public string? Name { get; set; }
-}
-
-    public class User
+// ✅ User model
+public class User
 {
     [Column("id")]
     public int Id { get; set; }
@@ -104,63 +102,11 @@ public class Item
     public string? Password
     {
         get => _password;
-        set
-        {
-            {
-                _password = value; // ✅ Store already hashed passwords
-            }
-        }
+        set => _password = value;
     }
 }
 
-// ✅ Items Controller
-[ApiController]
-[Route("api/[controller]")]
-public class ItemsController : ControllerBase
-{
-    private readonly AppDbContext _context;
-    public ItemsController(AppDbContext context) => _context = context;
-
-    [HttpGet]
-    public ActionResult<IEnumerable<Item>> Get() => _context.Items.ToList();
-
-    [HttpGet("{id}")]
-    public ActionResult<Item> Get(int id)
-    {
-        var item = _context.Items.Find(id);
-        if (item == null) return NotFound();
-        return item;
-    }
-
-    [HttpPost]
-    public IActionResult Post(Item item)
-    {
-        _context.Items.Add(item);
-        _context.SaveChanges();
-        return CreatedAtAction(nameof(Get), new { id = item.Id }, item);
-    }
-
-    [HttpPut("{id}")]
-    public IActionResult Put(int id, Item item)
-    {
-        if (id != item.Id) return BadRequest();
-        _context.Entry(item).State = EntityState.Modified;
-        _context.SaveChanges();
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public IActionResult Delete(int id)
-    {
-        var item = _context.Items.Find(id);
-        if (item == null) return NotFound();
-        _context.Items.Remove(item);
-        _context.SaveChanges();
-        return NoContent();
-    }
-}
-
-// ✅ Users Controller
+// ✅ UsersController
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -172,134 +118,87 @@ public class UsersController : ControllerBase
         _context = context;
     }
 
-    // GET: api/users
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetUsers()
     {
         var users = await _context.Users
-            .Select(u => new { u.Id, u.Name, u.Email }) // ✅ Hide Password
+            .Select(u => new { u.Id, u.Name, u.Email })
             .ToListAsync();
 
         return Ok(users);
     }
 
-    // GET: api/users/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetUser(int id)
     {
         var user = await _context.Users
             .Where(u => u.Id == id)
-            .Select(u => new { u.Id, u.Name, u.Email }) // ✅ Hide Password
+            .Select(u => new { u.Id, u.Name, u.Email })
             .FirstOrDefaultAsync();
 
-        if (user == null)
-        {
-            return NotFound();
-        }
-
+        if (user == null) return NotFound();
         return Ok(user);
     }
 
-    // POST: api/users
-[HttpPost]
-public async Task<ActionResult<User>> PostUser(User user)
-{
-    if (string.IsNullOrEmpty(user.Password))
+    [HttpPost]
+    public async Task<ActionResult<User>> PostUser(User user)
     {
-        return BadRequest("Password is required.");
+        if (string.IsNullOrEmpty(user.Password))
+            return BadRequest("Password is required.");
+
+        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new { user.Id, user.Name, user.Email });
     }
 
-    // ✅ Explicitly hash password before storing
-    user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-
-    _context.Users.Add(user);
-    await _context.SaveChangesAsync();
-
-    return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new { user.Id, user.Name, user.Email }); // ✅ Hide password in response
-}
-
-
-    // PUT: api/users/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> PutUser(int id, User user)
     {
-        if (id != user.Id)
-        {
-            return BadRequest();
-        }
+        if (id != user.Id) return BadRequest();
 
         var existingUser = await _context.Users.FindAsync(id);
-        if (existingUser == null)
-        {
-            return NotFound();
-        }
+        if (existingUser == null) return NotFound();
 
         existingUser.Name = user.Name;
         existingUser.Email = user.Email;
 
-        // ✅ Only hash the password if it's a new password
-        if (!string.IsNullOrEmpty(user.Password))
+        if (!string.IsNullOrEmpty(user.Password) &&
+            !BCrypt.Net.BCrypt.Verify(user.Password, existingUser.Password))
         {
-            bool isSamePassword = BCrypt.Net.BCrypt.Verify(user.Password, existingUser.Password);
-            if (!isSamePassword)
-            {
-                existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-            }
+            existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
         }
 
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // DELETE: api/users/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteUser(int id)
     {
         var user = await _context.Users.FindAsync(id);
-        if (user == null)
-        {
-            return NotFound();
-        }
+        if (user == null) return NotFound();
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // POST: api/users/login
     [HttpPost("login")]
-public async Task<IActionResult> Login([FromBody] User loginRequest)
-{
-    Console.WriteLine($"🔍 Login attempt for: {loginRequest.Email} password: {loginRequest.Password}");
-
-    var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginRequest.Email);
-
-    if (user == null)
+    public async Task<IActionResult> Login([FromBody] User loginRequest)
     {
-        Console.WriteLine("❌ User not found in database.");
-        return Unauthorized("Invalid email or password.");
+        Console.WriteLine($"🔍 Login attempt for: {loginRequest.Email}");
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginRequest.Email);
+        if (user == null) return Unauthorized("Invalid email or password.");
+
+        bool passwordMatches = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
+        if (!passwordMatches) return Unauthorized("Invalid email or password.");
+
+        return Ok(new { message = "Login successful!" });
     }
-
-    Console.WriteLine($"✅ Found user: {user.Email}");
-    Console.WriteLine($"🔐 Stored hashed password: {user.Password}");
-    Console.WriteLine($"🔑 Entered password (plaintext): {loginRequest.Password}");
-
-    // 🔹 Debug: Check if entered password is already hashed
-    if (loginRequest.Password != null && loginRequest.Password.StartsWith("$2a$"))
-    {
-        Console.WriteLine("❌ ERROR: Entered password is already hashed! Expected plain text.");
-    }
-
-    bool passwordMatches = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
-
-    if (!passwordMatches)
-    {
-        Console.WriteLine("❌ Password does not match.");
-        return Unauthorized("Invalid email or password.");
-    }
-
-    Console.WriteLine("✅ Password matched! Login successful.");
-    return Ok(new { message = "Login successful!" });
 }
 
-}
+// ✅ Required for testing purposes with WebApplicationFactory
+public partial class Program { }
