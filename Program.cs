@@ -15,15 +15,25 @@ using BCrypt.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Load environment variables
-DotNetEnv.Env.Load();
-
+// Determine if running in testing mode early
 var isTesting = builder.Environment.EnvironmentName == "Testing";
+
+// Load correct .env file
+if (isTesting)
+{
+    DotNetEnv.Env.Load(".env.test");
+}
+else
+{
+    DotNetEnv.Env.Load(); // defaults to `.env`
+}
+
 string connectionString;
 
 if (isTesting)
 {
-    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION");
+    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION") 
+        ?? throw new InvalidOperationException("TEST_DB_CONNECTION environment variable is not set.");
 }
 else
 {
@@ -37,6 +47,7 @@ else
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
 
 // ✅ Add CORS Policy
 builder.Services.AddCors(options =>
@@ -73,16 +84,23 @@ app.Run();
 // ✅ AppDbContext
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    private readonly string _schema;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration config) : base(options)
+    {
+        _schema = config["DB_SCHEMA"] ?? "maskinen";
+        Console.WriteLine($"🏗 Using schema: {_schema}");
+    }
 
     public DbSet<User> Users { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema("maskinen");
+        modelBuilder.HasDefaultSchema(_schema);
         modelBuilder.Entity<User>().ToTable("users");
     }
 }
+
 
 // ✅ User model
 public class User
