@@ -7,7 +7,7 @@ using Xunit;
 
 namespace MyPostgresApi.Tests
 {
-    public class ProgramTest : IClassFixture<CustomWebApplicationFactory>
+    public class ProgramTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
     {
         private readonly HttpClient _client;
         private readonly IServiceScope _scope;
@@ -18,17 +18,15 @@ namespace MyPostgresApi.Tests
             _client = factory.CreateClient();
             _scope = factory.Services.CreateScope();
             _dbContext = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            CleanDatabaseAsync().Wait();
         }
 
-        // Delete before each test
-        private async Task CleanDatabaseAsync()
+        // ✅ This runs before each test
+        public async Task InitializeAsync()
         {
             await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
         }
 
-        // Delete after each test
+        // ✅ This runs after each test
         public async Task DisposeAsync()
         {
             await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
@@ -62,7 +60,6 @@ namespace MyPostgresApi.Tests
         [Fact]
         public async Task LoginUser_ReturnsSuccess()
         {
-            // Insert user manually for login
             var testUser = new User
             {
                 Name = "Login Tester",
@@ -75,7 +72,7 @@ namespace MyPostgresApi.Tests
 
             var loginRequest = new
             {
-                Email = testUser.Email,
+                testUser.Email,
                 Password = "TestPassword123"
             };
 

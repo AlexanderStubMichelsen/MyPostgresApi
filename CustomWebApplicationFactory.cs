@@ -18,7 +18,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureAppConfiguration((context, configBuilder) =>
         {
-            configBuilder.AddInMemoryCollection(new Dictionary<string, string>
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["DB_SCHEMA"] = "test_schema"
             });
