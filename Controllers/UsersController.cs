@@ -48,38 +48,6 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new { user.Id, user.Name, user.Email });
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> PutUser(int id, User user)
-    {
-        if (id != user.Id) return BadRequest();
-
-        var existingUser = await _context.Users.FindAsync(id);
-        if (existingUser == null) return NotFound();
-
-        existingUser.Name = user.Name;
-        existingUser.Email = user.Email;
-
-        if (!string.IsNullOrEmpty(user.Password) &&
-            !BCrypt.Net.BCrypt.Verify(user.Password, existingUser.Password))
-        {
-            existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-        }
-
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-        if (user == null) return NotFound();
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
-
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] User loginRequest)
     {

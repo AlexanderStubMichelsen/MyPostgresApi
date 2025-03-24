@@ -1,19 +1,15 @@
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace MyPostgresApi.Tests
 {
-    public class ProgramTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
+    public class UsersTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
     {
         private readonly HttpClient _client;
         private readonly IServiceScope _scope;
         private readonly AppDbContext _dbContext;
 
-        public ProgramTest(CustomWebApplicationFactory factory)
+        public UsersTest(CustomWebApplicationFactory factory)
         {
             _client = factory.CreateClient();
             _scope = factory.Services.CreateScope();
@@ -34,13 +30,6 @@ namespace MyPostgresApi.Tests
         }
 
         [Fact]
-        public async Task GetUsers_ReturnsSuccessStatusCode()
-        {
-            var response = await _client.GetAsync("/api/users");
-            response.EnsureSuccessStatusCode();
-        }
-
-        [Fact]
         public async Task PostUser_CreatesUser()
         {
             var newUser = new
@@ -55,6 +44,13 @@ namespace MyPostgresApi.Tests
 
             var createdUser = await response.Content.ReadFromJsonAsync<object>();
             Assert.NotNull(createdUser);
+        }
+
+         [Fact]
+        public async Task GetUsers_ReturnsSuccessStatusCode()
+        {
+            var response = await _client.GetAsync("/api/users");
+            response.EnsureSuccessStatusCode();
         }
 
         [Fact]
