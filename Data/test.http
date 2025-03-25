@@ -1,7 +1,7 @@
 @baseUrl = http://localhost:5019/api
 
 ###
-GET {{baseUrl}}/items
+GET {{baseUrl}}/users
 
 ###
 GET {{baseUrl}}/items/1
@@ -39,12 +39,15 @@ Content-Type: application/json
 
 ###
 
-PUT {{baseUrl}}/users/2
+GET {{baseUrl}}/users
+
+###
+
+PUT {{baseUrl}}/users/akonfn@fkan.com
 Content-Type: application/json
 
 {
-    "id": 2,
-    "name": "Updated user x",
+    "name": "Updated user g",
     "email": "akonfn@fkan.com",
     "password": "12345678"
 }
@@ -67,4 +70,13 @@ Content-Type: application/json
     "password": "ss"
 }
 
+###
+
+PUT http://localhost:5019/api/users/akonfn@fkan.com/changepassword
+Content-Type: application/json
+
+{
+    "oldPassword": "newPassword123",
+    "newPassword": "123"
+}
 

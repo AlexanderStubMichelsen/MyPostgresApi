@@ -78,5 +78,41 @@ namespace MyPostgresApi.Tests
             var loginResponse = await response.Content.ReadFromJsonAsync<object>();
             Assert.NotNull(loginResponse);
         }
+
+          [Fact]
+        public async Task UpdateUser_ReturnsSuccess()
+        {
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "uniqueuser@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
+            response.EnsureSuccessStatusCode();
+
+            // Update the user we just created
+            var updatedUser = new
+            {
+                Name = "Updated Test User",
+                Email = "uniqueuserupdated@example.com",
+                Password = "UpdatedPassword"
+            };
+
+            var updateResponse = await _client.PutAsJsonAsync("/api/users/uniqueuser@example.com", updatedUser);
+            updateResponse.EnsureSuccessStatusCode();
+
+            // Verify the update by fetching the user again
+            var getUserResponse = await _client.GetAsync("/api/users");
+            getUserResponse.EnsureSuccessStatusCode();
+
+            var users = await getUserResponse.Content.ReadFromJsonAsync<IEnumerable<dynamic>>();
+            var updatedUserResponse = users.FirstOrDefault(u => u.GetProperty("email").GetString() == updatedUser.Email);
+
+            Assert.NotNull(updatedUserResponse);
+            Assert.Equal(updatedUser.Name, updatedUserResponse.GetProperty("name").GetString());
+            Assert.Equal(updatedUser.Email, updatedUserResponse.GetProperty("email").GetString());
+        }
     }
 }
