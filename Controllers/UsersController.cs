@@ -1,6 +1,11 @@
 // ✅ UsersController
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -8,44 +13,65 @@ public class UsersController : ControllerBase
 {
     private readonly AppDbContext _context;
 
+
     public UsersController(AppDbContext context)
     {
         _context = context;
     }
-        private static string GenerateJwtToken(User user)
+    private string GenerateJwtToken(User user)
+    {
+        // Retrieve the secret key from environment variables
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+        if (string.IsNullOrEmpty(secretKey))
         {
-            // Example implementation for generating a JWT token
-            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var key = System.Text.Encoding.ASCII.GetBytes("YourSecretKeyHere"); // Replace with your secret key
-            var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
-            {
-                Subject = new System.Security.Claims.ClaimsIdentity(new[]
-                {
-                    new System.Security.Claims.Claim("id", user.Id.ToString()),
-                    new System.Security.Claims.Claim("email", user.Email ?? string.Empty)
-                }),
-                Expires = DateTime.UtcNow.AddHours(1),
-                SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
-                    new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
-                    Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
-            };
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            return tokenHandler.WriteToken(token);
+            throw new InvalidOperationException("JWT_SECRET_KEY is not configured.");
         }
 
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+            new Claim(ClaimTypes.Name, user.Email ?? string.Empty)
+        }),
+            Expires = DateTime.UtcNow.AddHours(1),
+            SigningCredentials = credentials
+        };
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        return tokenHandler.WriteToken(token);
+    }
+
     [HttpPost]
-    public async Task<ActionResult<User>> PostUser(User user)
+    public async Task<ActionResult<object>> PostUser(User user)
     {
         if (string.IsNullOrEmpty(user.Password))
             return BadRequest("Password is required.");
 
+        // Hash the user's password
         user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+
+        // Add the user to the database
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new { user.Id, user.Name, user.Email });
+        // Generate a JWT token for the newly created user
+        var token = GenerateJwtToken(user);
+
+        // Return the user details along with the token
+        return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new
+        {
+            user.Id,
+            user.Name,
+            user.Email,
+            token
+        });
     }
 
+    [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetUser(int id)
     {
@@ -58,6 +84,7 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    [Authorize]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetUsers()
     {
@@ -68,6 +95,7 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    [Authorize]
     [HttpPut("{email}")]
     public async Task<IActionResult> PutUser(string email, User updatedUser)
     {
@@ -129,19 +157,21 @@ public class UsersController : ControllerBase
         }
 
         // You could generate a token here too if needed
-        // var token = GenerateJwtToken(user); // You’d implement this method
+        var token = GenerateJwtToken(user); // You’d implement this method
+
         return Ok(new
         {
             message = "Login successful!",
             name = user.Name,
             email = user.Email,
-            // You can return more info like role, id, etc.
-            // token
+            token
+
 
         });
 
     }
 
+    [Authorize]
     [HttpPut("{email}/changepassword")]
     public async Task<IActionResult> ChangePassword(string email, [FromBody] ChangePasswordRequest request)
     {

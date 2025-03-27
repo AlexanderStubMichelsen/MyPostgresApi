@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;  // Load environment variables
+using System.Text;
 using System.Web;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +17,13 @@ if (isTesting)
 else
 {
     _ = DotNetEnv.Env.Load(); // defaults to `.env`
+}
+
+// Retrieve JWT secret key
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+if (string.IsNullOrEmpty(jwtSecretKey))
+{
+    throw new InvalidOperationException("JWT_SECRET_KEY is not set in the .env file.");
 }
 
 string connectionString;
@@ -37,7 +46,6 @@ else
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-
 // ✅ Add CORS Policy
 builder.Services.AddCors(options =>
 {
@@ -50,6 +58,20 @@ builder.Services.AddCors(options =>
                   .AllowCredentials();
         });
 });
+
+// ✅ Add JWT Authentication
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
+        };
+    });
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -66,6 +88,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowReactApp");
 app.UseRouting();
+app.UseAuthentication(); // Use authentication middleware
 app.UseAuthorization();
 app.MapControllers();
 app.Run();

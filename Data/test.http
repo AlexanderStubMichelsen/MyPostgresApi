@@ -40,14 +40,16 @@ Content-Type: application/json
 ###
 
 GET {{baseUrl}}/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
 
 ###
 
 PUT {{baseUrl}}/users/akonfn@fkan.com
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
 
 {
-    "name": "Updated user g",
+    "name": "Updated user mew3",
     "email": "akonfn@fkan.com",
     "password": "12345678"
 }
@@ -58,25 +60,26 @@ DELETE {{baseUrl}}/users/2
 
 ###
 
-GET {{baseUrl}}/users
-
+GET http://localhost:5019/api/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
 ###
 
 POST http://localhost:5019/api/users/login
 Content-Type: application/json
 
 {
-    "email": "ss@ss.com",
-    "password": "ss"
+    "email": "eq@eq.dk",
+    "password": "eq"
 }
 
 ###
 
-PUT http://localhost:5019/api/users/akonfn@fkan.com/changepassword
+PUT http://localhost:5019/api/users/eq@eq.dk/changepassword
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4NjUxLCJleHAiOjE3NDMwODIyNTEsImlhdCI6MTc0MzA3ODY1MX0.nO5ezoVEcpVKDia5FCABtNtxK9AiZFawOyYXC06dtGc
 
 {
-    "oldPassword": "1234",
-    "newPassword": "12345"
+    "oldPassword": "eqq",
+    "newPassword": "eq"
 }
 
