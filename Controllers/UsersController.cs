@@ -12,6 +12,26 @@ public class UsersController : ControllerBase
     {
         _context = context;
     }
+        private static string GenerateJwtToken(User user)
+        {
+            // Example implementation for generating a JWT token
+            var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var key = System.Text.Encoding.ASCII.GetBytes("YourSecretKeyHere"); // Replace with your secret key
+            var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
+            {
+                Subject = new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim("id", user.Id.ToString()),
+                    new System.Security.Claims.Claim("email", user.Email ?? string.Empty)
+                }),
+                Expires = DateTime.UtcNow.AddHours(1),
+                SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
+                    new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+                    Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
 
     [HttpPost]
     public async Task<ActionResult<User>> PostUser(User user)
@@ -109,12 +129,15 @@ public class UsersController : ControllerBase
         }
 
         // You could generate a token here too if needed
+        // var token = GenerateJwtToken(user); // You’d implement this method
         return Ok(new
         {
             message = "Login successful!",
             name = user.Name,
-            email = user.Email
+            email = user.Email,
             // You can return more info like role, id, etc.
+            // token
+
         });
 
     }

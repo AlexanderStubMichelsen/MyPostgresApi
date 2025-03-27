@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using System.Net;
 
 namespace MyPostgresApi.Tests
 {
@@ -111,8 +112,36 @@ namespace MyPostgresApi.Tests
             var updatedUserResponse = users.FirstOrDefault(u => u.GetProperty("email").GetString() == updatedUser.Email);
 
             Assert.NotNull(updatedUserResponse);
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
             Assert.Equal(updatedUser.Name, updatedUserResponse.GetProperty("name").GetString());
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
             Assert.Equal(updatedUser.Email, updatedUserResponse.GetProperty("email").GetString());
+        }
+
+        [Fact]
+        public async Task ChangePassword()
+        {
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "uniqueuser@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
+            response.EnsureSuccessStatusCode();
+
+            // Change the password of the user we just created
+            var changePasswordRequest = new
+            {
+                OldPassword = "TestPassword123",
+                NewPassword = "NewTestPassword123"
+            };
+            var changePasswordResponse = await _client.PutAsJsonAsync("/api/users/uniqueuser@example.com/changepassword", changePasswordRequest);
+            changePasswordResponse.EnsureSuccessStatusCode();
+
+            Assert.NotNull(changePasswordResponse);
+            Assert.Equal(HttpStatusCode.OK, changePasswordResponse.StatusCode);
         }
     }
 }

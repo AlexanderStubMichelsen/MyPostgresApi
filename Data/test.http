@@ -76,7 +76,7 @@ PUT http://localhost:5019/api/users/akonfn@fkan.com/changepassword
 Content-Type: application/json
 
 {
-    "oldPassword": "newPassword123",
-    "newPassword": "123"
+    "oldPassword": "1234",
+    "newPassword": "12345"
 }
 
