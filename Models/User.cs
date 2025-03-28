@@ -20,4 +20,14 @@ public class User
         get => _password;
         set => _password = value;
     }
+    
+    // public enum UserRole
+    // {
+    //     Admin,
+    //     User,
+    //     Guest
+    // }
+
+    // [Column("role")]
+    // public UserRole Role { get; set; } = UserRole.User; // Default role is 'User'
 }
