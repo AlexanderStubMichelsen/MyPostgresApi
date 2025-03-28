@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Xunit;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace MyPostgresApi.Tests
 {
@@ -85,8 +86,17 @@ namespace MyPostgresApi.Tests
             var response = await _client.PostAsJsonAsync("/api/users", newUser);
             response.EnsureSuccessStatusCode();
 
-            var createdUser = await response.Content.ReadFromJsonAsync<object>();
-            Assert.NotNull(createdUser);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            var createdUser = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(newUser.Name, createdUser.GetProperty("name").GetString());
+            Assert.Equal(newUser.Email, createdUser.GetProperty("email").GetString());
+        }
+
+        public class UserResponse
+        {
+            public string? Name { get; set; }
+            public string? Email { get; set; }
         }
 
         [Fact]
@@ -94,8 +104,45 @@ namespace MyPostgresApi.Tests
         {
             AddAuthorizationHeader();
 
-            var response = await _client.GetAsync("/api/users");
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "uniqueuser@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
             response.EnsureSuccessStatusCode();
+
+            var newUser2 = new
+            {
+                Name = "Unique Test User2",
+                Email = "uniqueuser2@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response2 = await _client.PostAsJsonAsync("/api/users", newUser2);
+            response2.EnsureSuccessStatusCode();
+
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+            Console.WriteLine(await response2.Content.ReadAsStringAsync());
+
+            var responseGet = await _client.GetAsync("/api/users");
+            responseGet.EnsureSuccessStatusCode();
+
+            var users = await responseGet.Content.ReadFromJsonAsync<List<UserResponse>>();
+
+            // 3 because we have the one we created for the token
+            Assert.NotNull(users);
+            Assert.Equal(3, users!.Count());
+            Assert.Equal(newUser.Email, users[1].Email);
+            Assert.Equal(newUser2.Name, users.Last().Name);
+
+        }
+
+        public class LoginResponse
+        {
+            public string? Token { get; set; }
         }
 
         [Fact]
@@ -120,8 +167,9 @@ namespace MyPostgresApi.Tests
             var response = await _client.PostAsJsonAsync("/api/users/login", loginRequest);
             response.EnsureSuccessStatusCode();
 
-            var loginResponse = await response.Content.ReadFromJsonAsync<object>();
+            var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
             Assert.NotNull(loginResponse);
+            Assert.NotNull(loginResponse!.Token); // Ensure the token is not null
         }
 
         [Fact]
@@ -129,6 +177,7 @@ namespace MyPostgresApi.Tests
         {
             AddAuthorizationHeader();
 
+            // Create a new user
             var newUser = new
             {
                 Name = "Unique Test User",
@@ -143,22 +192,28 @@ namespace MyPostgresApi.Tests
             var updatedUser = new
             {
                 Name = "Updated Test User",
-                Email = "uniqueuserupdated@example.com",
+                Email = "uniqueuser@example.com", // Keep the same email to identify the user
                 Password = "UpdatedPassword"
             };
 
-            var updateResponse = await _client.PutAsJsonAsync("/api/users/uniqueuser@example.com", updatedUser);
+            var updateResponse = await _client.PutAsJsonAsync($"/api/users/{newUser.Email}", updatedUser);
             updateResponse.EnsureSuccessStatusCode();
 
-            // Verify the update by fetching the user again
+            // Fetch the updated user
             var getUserResponse = await _client.GetAsync("/api/users");
             getUserResponse.EnsureSuccessStatusCode();
 
-            var users = await getUserResponse.Content.ReadFromJsonAsync<IEnumerable<dynamic>>();
-            var updatedUserResponse = users.FirstOrDefault(u => u.GetProperty("email").GetString() == updatedUser.Email);
+            var users = await getUserResponse.Content.ReadFromJsonAsync<List<UserResponse>>();
+            Assert.NotNull(users);
 
+            // Verify the updated user
+            var updatedUserResponse = users.FirstOrDefault(u => u.Email == updatedUser.Email);
             Assert.NotNull(updatedUserResponse);
-            Assert.Equal(updatedUser.Name, updatedUserResponse.GetProperty("name").GetString());
+            Assert.Equal(updatedUser.Name, updatedUserResponse!.Name);
+            Assert.Equal(updatedUser.Email, updatedUserResponse.Email);
+
+            // Debug output for inspection
+            Console.WriteLine($"Updated User: Name={updatedUserResponse.Name}, Email={updatedUserResponse.Email}");
         }
 
         [Fact]
@@ -187,11 +242,6 @@ namespace MyPostgresApi.Tests
 
             Assert.NotNull(changePasswordResponse);
             Assert.Equal(HttpStatusCode.OK, changePasswordResponse.StatusCode);
-        }
-
-        public class LoginResponse
-        {
-            public string? Token { get; set; }
         }
     }
 }
