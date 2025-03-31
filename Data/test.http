@@ -1,52 +1,26 @@
 @baseUrl = http://localhost:5019/api
 
 ###
-GET {{baseUrl}}/users
 
-###
-GET {{baseUrl}}/items/1
-
-###
-POST {{baseUrl}}/items
-Content-Type: application/json
-
-{
-    "name": "Posted item x"
-}
-
-###
-
-PUT {{baseUrl}}/items/3
-Content-Type: application/json
-
-{
-    "id": 3,
-    "name": "Updated item x"
-}
-
-###
-DELETE {{baseUrl}}/items/3
-
-###
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
     "Name": "ss",
-    "email": "ss@ss.com",
+    "email": "ss1@ss.com",
     "password": "ss"
 }
 
 ###
 
 GET {{baseUrl}}/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
 
 ###
 
 PUT {{baseUrl}}/users/akonfn@fkan.com
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
 
 {
     "name": "Updated user mew3",
@@ -56,12 +30,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6I
 
 ###
 
+# Not implemented
 DELETE {{baseUrl}}/users/2
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
 
 ###
 
 GET http://localhost:5019/api/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4MTYyLCJleHAiOjE3NDMwODE3NjIsImlhdCI6MTc0MzA3ODE2Mn0.PyWpZYlEeFGNnKhfR1xN7YyK-C8tyBCWqUY6UloJLjg
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
 ###
 
 POST http://localhost:5019/api/users/login
@@ -76,7 +52,7 @@ Content-Type: application/json
 
 PUT http://localhost:5019/api/users/eq@eq.dk/changepassword
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzMDc4NjUxLCJleHAiOjE3NDMwODIyNTEsImlhdCI6MTc0MzA3ODY1MX0.nO5ezoVEcpVKDia5FCABtNtxK9AiZFawOyYXC06dtGc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
 
 {
     "oldPassword": "eqq",

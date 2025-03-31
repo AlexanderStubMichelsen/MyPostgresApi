@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using System.Net;
-using System.Net.Http.Json;
+// Ensure the Models namespace exists in the project or remove this line if unnecessary
+using MyPostgresApi.Models;
 using System.Text.Json;
 
 namespace MyPostgresApi.Tests
@@ -203,17 +204,16 @@ namespace MyPostgresApi.Tests
             var getUserResponse = await _client.GetAsync("/api/users");
             getUserResponse.EnsureSuccessStatusCode();
 
-            var users = await getUserResponse.Content.ReadFromJsonAsync<List<UserResponse>>();
+            var users = await getUserResponse.Content.ReadFromJsonAsync<List<User>>();
             Assert.NotNull(users);
 
+            // Convert to DTOs using the ToDtos method in the User class
+            var userDtos = User.ToDtos(users);
             // Verify the updated user
-            var updatedUserResponse = users.FirstOrDefault(u => u.Email == updatedUser.Email);
+            var updatedUserResponse = userDtos.FirstOrDefault(u => u.Email == updatedUser.Email);
             Assert.NotNull(updatedUserResponse);
             Assert.Equal(updatedUser.Name, updatedUserResponse!.Name);
             Assert.Equal(updatedUser.Email, updatedUserResponse.Email);
-
-            // Debug output for inspection
-            Console.WriteLine($"Updated User: Name={updatedUserResponse.Name}, Email={updatedUserResponse.Email}");
         }
 
         [Fact]

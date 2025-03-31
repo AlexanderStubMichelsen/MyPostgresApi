@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using MyPostgresApi.Models;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -61,12 +62,12 @@ public class UsersController : ControllerBase
         // Generate a JWT token for the newly created user
         var token = GenerateJwtToken(user);
 
+        var userDto = user.ToDto(); // Convert to DTO if needed
+
         // Return the user details along with the token
         return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new
         {
-            user.Id,
-            user.Name,
-            user.Email,
+            userDto,
             token
         });
     }
@@ -104,9 +105,6 @@ public class UsersController : ControllerBase
         {
             return NotFound("User not found.");
         }
-
-        user.Name = updatedUser.Name;
-        user.Email = updatedUser.Email;
 
         if (!string.IsNullOrEmpty(updatedUser.Password))
         {
@@ -150,6 +148,8 @@ public class UsersController : ControllerBase
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
+        var userDto = user.ToDto(); // Convert to DTO if needed
+
         bool passwordMatches = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
         if (!passwordMatches)
         {
@@ -159,14 +159,13 @@ public class UsersController : ControllerBase
         // You could generate a token here too if needed
         var token = GenerateJwtToken(user); // You’d implement this method
 
+        Console.WriteLine($"login for user email {userDto.Email} user name {userDto.Name}");
+
         return Ok(new
         {
             message = "Login successful!",
-            name = user.Name,
-            email = user.Email,
+            userDto,
             token
-
-
         });
 
     }

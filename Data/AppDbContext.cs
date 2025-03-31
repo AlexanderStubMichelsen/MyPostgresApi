@@ -1,5 +1,6 @@
 // ✅ AppDbContext
 using Microsoft.EntityFrameworkCore;
+using MyPostgresApi.Models;
 
 public class AppDbContext : DbContext
 {

@@ -1,5 +1,8 @@
 // ✅ User model
 using System.ComponentModel.DataAnnotations.Schema;
+using MyPostgresApi.DTOs; // Import the UserDto namespace
+
+namespace MyPostgresApi.Models;
 
 public class User
 {
@@ -30,4 +33,20 @@ public class User
 
     // [Column("role")]
     // public UserRole Role { get; set; } = UserRole.User; // Default role is 'User'
+
+    // Mapping method to convert User to UserDto
+    public UserDto ToDto()
+    {
+        return new UserDto
+        {
+            Name = this.Name,
+            Email = this.Email
+        };
+    }
+
+    // Convert a list of Users to a list of UserDtos
+    public static List<UserDto> ToDtos(List<User> users)
+    {
+        return users.Select(user => user.ToDto()).ToList();
+    }
 }
