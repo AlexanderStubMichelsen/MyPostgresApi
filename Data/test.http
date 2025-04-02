@@ -6,38 +6,37 @@ POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "Name": "ss",
-    "email": "ss1@ss.com",
-    "password": "ss"
+    "Name": "ss1",
+    "email": "ss1@ss1.com",
+    "password": "ss1"
 }
 
 ###
 
 GET {{baseUrl}}/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
 
 ###
 
-PUT {{baseUrl}}/users/akonfn@fkan.com
+PUT {{baseUrl}}/users/ss@ss.com
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
 
 {
-    "name": "Updated user mew3",
-    "email": "akonfn@fkan.com",
-    "password": "12345678"
+    "name": "ssupdated",
+    "password": "ss"
 }
 
 ###
 
 # Not implemented
 DELETE {{baseUrl}}/users/2
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
 
 ###
 
 GET http://localhost:5019/api/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImVxQGVxLmRrIiwibmJmIjoxNzQzNDA2NTI2LCJleHAiOjE3NDM0MTAxMjYsImlhdCI6MTc0MzQwNjUyNn0.GdSWEXk7ggoMFv0-WrOnj4P17uFNGZURXSYtvIo4q3U
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
 ###
 
 POST http://localhost:5019/api/users/login

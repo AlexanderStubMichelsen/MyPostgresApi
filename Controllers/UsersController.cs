@@ -106,12 +106,20 @@ public class UsersController : ControllerBase
             return NotFound("User not found.");
         }
 
+        // Update the Name if provided
+        if (!string.IsNullOrEmpty(updatedUser.Name))
+        {
+            user.Name = updatedUser.Name;
+        }
+
+        // Update the Password if provided
         if (!string.IsNullOrEmpty(updatedUser.Password))
         {
             user.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
         }
 
-        _context.Entry(user).State = EntityState.Modified;
+        // Exclude email from being updated
+        _context.Entry(user).Property(u => u.Email).IsModified = false;
 
         try
         {

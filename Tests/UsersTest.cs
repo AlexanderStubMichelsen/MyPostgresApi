@@ -12,7 +12,7 @@ namespace MyPostgresApi.Tests
         private readonly HttpClient _client;
         private readonly IServiceScope _scope;
         private readonly AppDbContext _dbContext;
-        private string _token;
+        private string? _token;
 
         public UsersTest(CustomWebApplicationFactory factory)
         {
@@ -90,8 +90,9 @@ namespace MyPostgresApi.Tests
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
             var createdUser = await response.Content.ReadFromJsonAsync<JsonElement>();
-            Assert.Equal(newUser.Name, createdUser.GetProperty("name").GetString());
-            Assert.Equal(newUser.Email, createdUser.GetProperty("email").GetString());
+            var userDto = createdUser.GetProperty("userDto");
+            Assert.Equal(newUser.Name, userDto.GetProperty("name").GetString());
+            Assert.Equal(newUser.Email, userDto.GetProperty("email").GetString());
         }
 
         public class UserResponse
