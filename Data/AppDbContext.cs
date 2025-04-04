@@ -1,4 +1,3 @@
-// ✅ AppDbContext
 using Microsoft.EntityFrameworkCore;
 using MyPostgresApi.Models;
 
@@ -8,27 +7,45 @@ public class AppDbContext : DbContext
 
     public AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration config) : base(options)
     {
-        // Retrieve schema from configuration or use default
         _schema = config["DB_SCHEMA"] ?? "maskinen";
         Console.WriteLine($"🏗 Using schema: {_schema}");
     }
 
     public DbSet<User> Users { get; set; }
+    public DbSet<SavedImage> SavedImages { get; set; } // ✅ Add SavedImages table
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Set default schema
+        // ✅ Use configured schema
         modelBuilder.HasDefaultSchema(_schema);
 
-        // Configure the Users table
+        // ✅ Users table
         modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("users"); // Map to "users" table
-            entity.HasKey(u => u.Id); // Set primary key
-            entity.Property(u => u.Name).IsRequired().HasMaxLength(100); // Configure Name column
-            entity.Property(u => u.Email).IsRequired().HasMaxLength(100); // Configure Email column
-            entity.HasIndex(u => u.Email).IsUnique(); // Ensure Email is unique
-            entity.Property(u => u.Password).IsRequired(); // Configure Password column
+            entity.ToTable("users");
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.Name).IsRequired().HasMaxLength(100);
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(100);
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.Password).IsRequired();
+        });
+
+        // ✅ SavedImages table
+        modelBuilder.Entity<SavedImage>(entity =>
+        {
+            entity.ToTable("saved_images"); // Table name
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.ImageUrl).IsRequired();
+            entity.Property(i => i.Title).HasMaxLength(200);
+            entity.Property(i => i.Photographer).HasMaxLength(100);
+            entity.Property(i => i.SourceLink).HasMaxLength(300);
+            entity.Property(i => i.SavedAt).IsRequired();
+
+            // Optional: foreign key constraint (comment out if not using full navigation)
+            entity.HasOne(i => i.User)
+                  .WithMany()
+                  .HasForeignKey(i => i.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
