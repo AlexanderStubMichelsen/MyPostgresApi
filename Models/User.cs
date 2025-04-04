@@ -39,6 +39,7 @@ public class User
     {
         return new UserDto
         {
+            Id = this.Id,
             Name = this.Name,
             Email = this.Email
         };

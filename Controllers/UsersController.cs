@@ -1,4 +1,3 @@
-// ✅ UsersController
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
@@ -14,14 +13,13 @@ public class UsersController : ControllerBase, IUsersController
 {
     private readonly AppDbContext _context;
 
-
     public UsersController(AppDbContext context)
     {
         _context = context;
     }
+
     private string GenerateJwtToken(User user)
     {
-        // Retrieve the secret key from environment variables
         var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
         if (string.IsNullOrEmpty(secretKey))
         {
@@ -35,8 +33,9 @@ public class UsersController : ControllerBase, IUsersController
         {
             Subject = new ClaimsIdentity(new[]
             {
-            new Claim(ClaimTypes.Name, user.Email ?? string.Empty)
-        }),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Email ?? string.Empty)
+            }),
             Expires = DateTime.UtcNow.AddHours(1),
             SigningCredentials = credentials
         };
@@ -52,19 +51,14 @@ public class UsersController : ControllerBase, IUsersController
         if (string.IsNullOrEmpty(user.Password))
             return BadRequest("Password is required.");
 
-        // Hash the user's password
         user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
-        // Add the user to the database
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Generate a JWT token for the newly created user
         var token = GenerateJwtToken(user);
+        var userDto = user.ToDto();
 
-        var userDto = user.ToDto(); // Convert to DTO if needed
-
-        // Return the user details along with the token
         return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new
         {
             userDto,
@@ -97,52 +91,58 @@ public class UsersController : ControllerBase, IUsersController
     }
 
     [Authorize]
-    [HttpPut("{email}")]
-    public async Task<IActionResult> PutUser(string email, User updatedUser)
+    [HttpPut("update")]
+    public async Task<IActionResult> UpdateCurrentUser([FromBody] User updatedUser)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+        var user = await _context.Users.FindAsync(userId);
         if (user == null)
         {
             return NotFound("User not found.");
         }
 
-        // Update the Name if provided
+        // ✅ Require correct password before updating name
+        if (string.IsNullOrEmpty(updatedUser.Password))
+        {
+            return BadRequest("Password is required to update profile.");
+        }
+
+        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(updatedUser.Password, user.Password);
+        if (!isPasswordValid)
+        {
+            return Unauthorized("Incorrect password.");
+        }
+
+        // ✅ Update name only if provided
         if (!string.IsNullOrEmpty(updatedUser.Name))
         {
             user.Name = updatedUser.Name;
-        }
-
-        // Update the Password if provided
-        if (!string.IsNullOrEmpty(updatedUser.Password))
-        {
-            user.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
-        }
-
-        // Exclude email from being updated
-        _context.Entry(user).Property(u => u.Email).IsModified = false;
-
-        try
-        {
             await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!UserExists(user.Id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            return Ok(new { message = "User name updated successfully" });
         }
 
-        return NoContent();
+        return BadRequest("Nothing to update.");
     }
 
-    private bool UserExists(int id)
+    [Authorize]
+    [HttpPut("changepassword")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        return _context.Users.Any(e => e.Id == id);
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            return NotFound("User not found");
+
+        bool oldPasswordValid = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password);
+        if (!oldPasswordValid)
+            return Unauthorized("Old password is incorrect");
+
+        user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Password updated successfully!" });
     }
 
     [HttpPost("login")]
@@ -156,18 +156,16 @@ public class UsersController : ControllerBase, IUsersController
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
-        var userDto = user.ToDto(); // Convert to DTO if needed
-
         bool passwordMatches = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
         if (!passwordMatches)
         {
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
-        // You could generate a token here too if needed
-        var token = GenerateJwtToken(user); // You’d implement this method
+        var token = GenerateJwtToken(user);
+        var userDto = user.ToDto();
 
-        Console.WriteLine($"login for user email {userDto.Email} user name {userDto.Name}");
+        Console.WriteLine($"✅ Login: {userDto.Id} - {userDto.Email}");
 
         return Ok(new
         {
@@ -175,24 +173,11 @@ public class UsersController : ControllerBase, IUsersController
             userDto,
             token
         });
-
     }
 
-    [Authorize]
-    [HttpPut("{email}/changepassword")]
-    public async Task<IActionResult> ChangePassword(string email, [FromBody] ChangePasswordRequest request)
+    private bool UserExists(int id)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-        if (user == null)
-            return NotFound("User not found");
-
-        bool oldPasswordValid = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password);
-        if (!oldPasswordValid)
-            return Unauthorized("Old password is incorrect");
-
-        user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Password updated successfully!" });
+        return _context.Users.Any(e => e.Id == id);
     }
 }
+
