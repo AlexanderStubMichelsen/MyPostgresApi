@@ -58,7 +58,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5175",
                 "http://172.105.95.18",
                 "http://172.105.95.18:80",
-                "http://172.105.95.18:3000")
+                "http://172.105.95.18:3000",
+                "http://172.105.95.18:5019")
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -92,7 +93,7 @@ if (app.Environment.IsDevelopment())
     _ = app.UseSwaggerUI();
 }
 
-app.UseCors("AllowReactApp");
+app.UseCors("AllowReactApp"); // ✅ Must be before UseRouting, UseAuthentication, etc.
 app.UseRouting();
 app.UseAuthentication(); // Use authentication middleware
 app.UseAuthorization();

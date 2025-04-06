@@ -18,6 +18,13 @@ namespace MyPostgresApi.Controllers
             _context = context;
         }
 
+        [AllowAnonymous]
+        [HttpOptions("save")]
+        public IActionResult Preflight()
+        {
+            return NoContent();
+        }
+
         [Authorize]
         [HttpPost("save")]
         public async Task<IActionResult> SaveImageForUser([FromBody] SavedImageDto dto)
