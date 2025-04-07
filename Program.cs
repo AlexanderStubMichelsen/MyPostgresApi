@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;  // Load environment variables
 using System.Text;
 using System.Web;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +31,7 @@ string connectionString;
 
 if (isTesting)
 {
-    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION") 
+    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION")
         ?? throw new InvalidOperationException("TEST_DB_CONNECTION environment variable is not set.");
 }
 else
@@ -84,6 +85,25 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("SignUpPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", ip =>
+            new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Too many sign-up attempts. Try again later.", token);
+    };
+});
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -95,6 +115,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowReactApp"); // ✅ Must be before UseRouting, UseAuthentication, etc.
 app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication(); // Use authentication middleware
 app.UseAuthorization();
 app.MapControllers();

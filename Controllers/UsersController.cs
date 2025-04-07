@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 using MyPostgresApi.Models;
 
@@ -45,6 +46,7 @@ public class UsersController : ControllerBase, IUsersController
         return tokenHandler.WriteToken(token);
     }
 
+    [EnableRateLimiting("SignUpPolicy")]
     [HttpPost]
     public async Task<ActionResult<object>> PostUser(User user)
     {
