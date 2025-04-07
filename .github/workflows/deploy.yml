@@ -24,12 +24,27 @@ jobs:
     - name: Publish application
       run: dotnet publish -c Release -o ./publish
 
-    # Securely copy files to the server
-    - name: Deploy to server
+    # Debug SSH configuration
+    - name: Debug SSH setup
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
         mkdir -p ~/.ssh
         echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H 172.105.95.18 >> ~/.ssh/known_hosts
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "echo 'SSH connection successful'"
+
+    # Securely copy files to the server
+    - name: Deploy to server
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      run: |
         scp -r ./publish/* root@172.105.95.18:../var/www/MyPostgresApi
+
+    # Restart the service
+    - name: Restart MyPostgresApi service
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      run: |
+        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "sudo systemctl restart MyPostgresApi"
