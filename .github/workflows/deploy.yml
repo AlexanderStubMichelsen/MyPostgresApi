@@ -48,4 +48,3 @@ jobs:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
         ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "sudo systemctl restart MyPostgresApi"
-git checkout HEAD^ -- MyPostgresApi.Tests/UsersTest.cs
