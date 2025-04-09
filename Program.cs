@@ -115,7 +115,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowReactApp"); // ✅ Must be before UseRouting, UseAuthentication, etc.
 app.UseRouting();
-app.UseRateLimiter();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseRateLimiter(); // Only enable in non-testing environments
+}
 app.UseAuthentication(); // Use authentication middleware
 app.UseAuthorization();
 app.MapControllers();

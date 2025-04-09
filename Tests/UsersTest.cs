@@ -13,7 +13,6 @@ namespace MyPostgresApi.Tests
         private readonly IServiceScope _scope;
         private readonly AppDbContext _dbContext;
         private string? _token;
-        private const string TestUserEmail = "testuser@example.com";
 
         public UsersTest(CustomWebApplicationFactory factory)
         {
@@ -22,17 +21,16 @@ namespace MyPostgresApi.Tests
             _dbContext = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
         }
 
-        // ✅ This runs before all tests
+        // ✅ This runs before each test
         public async Task InitializeAsync()
         {
-            // Explicitly specify the schema if required
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
 
-            // Create a single test user
+            // Create a test user
             var newUser = new
             {
                 Name = "Test User",
-                Email = TestUserEmail,
+                Email = "testuser@example.com",
                 Password = "TestPassword123"
             };
 
@@ -43,16 +41,10 @@ namespace MyPostgresApi.Tests
             _token = await GetJwtTokenAsync();
         }
 
-        // ✅ This runs after all tests
+        // ✅ This runs after each test
         public async Task DisposeAsync()
         {
-            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Email == "testuser@example.com"); // Corrected email syntax
-            if (user != null)
-            {
-                _dbContext.Users.Remove(user);
-                await _dbContext.SaveChangesAsync();
-            }
-
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
             _scope.Dispose();
         }
 
@@ -60,7 +52,7 @@ namespace MyPostgresApi.Tests
         {
             var loginRequest = new
             {
-                Email = "testuser@example.com", // Corrected email syntax
+                Email = "testuser@example.com",
                 Password = "TestPassword123"
             };
 
@@ -114,17 +106,41 @@ namespace MyPostgresApi.Tests
         {
             AddAuthorizationHeader();
 
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "uniqueuser@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
+            response.EnsureSuccessStatusCode();
+
+            var newUser2 = new
+            {
+                Name = "Unique Test User2",
+                Email = "uniqueuser2@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response2 = await _client.PostAsJsonAsync("/api/users", newUser2);
+            response2.EnsureSuccessStatusCode();
+
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
+            Console.WriteLine(await response2.Content.ReadAsStringAsync());
+
             var responseGet = await _client.GetAsync("/api/users");
             responseGet.EnsureSuccessStatusCode();
+
             var users = await responseGet.Content.ReadFromJsonAsync<List<UserResponse>>();
 
-            // Adjust the expected user count to match the actual number of users
+            // 3 because we have the one we created for the token
             Assert.NotNull(users);
-            Assert.Single(users); // Expect only 1 user
-            Assert.Equal(TestUserEmail, users[0].Email);
-            Assert.Equal("Test User", users[0].Name);
+            Assert.Equal(3, users!.Count());
+            Assert.Equal(newUser.Email, users[1].Email);
+            Assert.Equal(newUser2.Name, users.Last().Name);
+
         }
-        
 
         public class LoginResponse
         {
@@ -134,9 +150,19 @@ namespace MyPostgresApi.Tests
         [Fact]
         public async Task LoginUser_ReturnsSuccess()
         {
+            var testUser = new User
+            {
+                Name = "Login Tester",
+                Email = "logintest@example.com",
+                Password = BCrypt.Net.BCrypt.HashPassword("TestPassword123")
+            };
+
+            _dbContext.Users.Add(testUser);
+            await _dbContext.SaveChangesAsync();
+
             var loginRequest = new
             {
-                Email = TestUserEmail,
+                Email = "logintest@example.com",
                 Password = "TestPassword123"
             };
 
@@ -153,15 +179,14 @@ namespace MyPostgresApi.Tests
         {
             AddAuthorizationHeader();
 
-            // Update the user we just created
             var updatedUser = new
             {
                 Name = "Updated Test User",
-                Email = TestUserEmail, // Keep the same email to identify the user
+                Email = "testuser@example.com",
                 Password = "TestPassword123"
             };
 
-            var updateResponse = await _client.PutAsJsonAsync($"/api/users/{TestUserEmail}", updatedUser);
+            var updateResponse = await _client.PutAsJsonAsync("/api/users/update", updatedUser);
             updateResponse.EnsureSuccessStatusCode();
 
             // Fetch the updated user
@@ -185,13 +210,23 @@ namespace MyPostgresApi.Tests
         {
             AddAuthorizationHeader();
 
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "uniqueuser@example.com",
+                Password = "TestPassword123"
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
+            response.EnsureSuccessStatusCode();
+
             // Change the password of the user we just created
             var changePasswordRequest = new
             {
                 OldPassword = "TestPassword123",
                 NewPassword = "NewTestPassword123"
             };
-            var changePasswordResponse = await _client.PutAsJsonAsync($"/api/users/{TestUserEmail}/changepassword", changePasswordRequest);
+            var changePasswordResponse = await _client.PutAsJsonAsync("/api/users/changepassword", changePasswordRequest);
             changePasswordResponse.EnsureSuccessStatusCode();
 
             Assert.NotNull(changePasswordResponse);

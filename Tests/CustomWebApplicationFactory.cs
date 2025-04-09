@@ -5,6 +5,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // ✅ Set environment to "Testing" to disable rate limiting
+        builder.UseEnvironment("Testing");
+
         // 👇 This sets the correct path to the actual project
         var projectDir = Directory.GetCurrentDirectory();
         builder.UseContentRoot(projectDir);
