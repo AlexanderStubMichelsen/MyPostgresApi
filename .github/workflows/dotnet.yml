@@ -51,10 +51,10 @@ jobs:
           echo "JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}" >> .env
 
       - name: Run tests
+        env:
+          TEST_DB_CONNECTION: ${{ secrets.TEST_DB_CONNECTION }}
         run: |
-          # Export env vars before running dotnet test
-          export $(grep -v '^#' .env | xargs)
-          echo "TEST_DB_CONNECTION=$TEST_DB_CONNECTION"
+          echo "TEST_DB_CONNECTION is set: ${TEST_DB_CONNECTION:0:10}..." # optional sanity check
           dotnet build
           dotnet test --no-build --verbosity normal
         
