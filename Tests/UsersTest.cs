@@ -137,7 +137,7 @@ namespace MyPostgresApi.Tests
             // 3 because we have the one we created for the token
             Assert.NotNull(users);
             Assert.Equal(3, users!.Count());
-            Assert.Equal(newUser.Email, users[1].Email);
+            Assert.Equal(newUser.Email, users[0].Email);
             Assert.Equal(newUser2.Name, users.Last().Name);
 
         }

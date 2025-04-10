@@ -29,11 +29,12 @@ namespace MyPostgresApi.Controllers
         [HttpPost("save")]
         public async Task<IActionResult> SaveImageForUser([FromBody] SavedImageDto dto)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            Console.WriteLine("🔑 User ID from token: " + userId);
 
-            var savedImage = new SavedImage
+            var image = new SavedImage
             {
-                UserId = userId,
+                UserId = userId, // ✅ use authenticated user ID
                 ImageUrl = dto.ImageUrl,
                 Title = dto.Title,
                 Photographer = dto.Photographer,
@@ -41,21 +42,20 @@ namespace MyPostgresApi.Controllers
                 SavedAt = DateTime.UtcNow
             };
 
-            _context.SavedImages.Add(savedImage);
+            _context.SavedImages.Add(image);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Image saved successfully!" });
+            return Ok(image);
         }
 
-        // Optional: Get saved images for the logged-in user
         [Authorize]
         [HttpGet("mine")]
-        public async Task<ActionResult<IEnumerable<SavedImage>>> GetMySavedImages()
+        public async Task<ActionResult<IEnumerable<SavedImage>>> GetMyImages()
         {
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
             var images = await _context.SavedImages
-                .Where(img => img.UserId == userId)
+                .Where(i => i.UserId == userId)
                 .ToListAsync();
 
             return Ok(images);

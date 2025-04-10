@@ -33,19 +33,15 @@ public class AppDbContext : DbContext
         // ✅ SavedImages table
         modelBuilder.Entity<SavedImage>(entity =>
         {
-            entity.ToTable("saved_images"); // Table name
+            entity.ToTable("saved_images");
             entity.HasKey(i => i.Id);
-            entity.Property(i => i.ImageUrl).IsRequired();
-            entity.Property(i => i.Title).HasMaxLength(200);
-            entity.Property(i => i.Photographer).HasMaxLength(100);
-            entity.Property(i => i.SourceLink).HasMaxLength(300);
-            entity.Property(i => i.SavedAt).IsRequired();
-
-            // Optional: foreign key constraint (comment out if not using full navigation)
-            entity.HasOne(i => i.User)
-                  .WithMany()
-                  .HasForeignKey(i => i.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(i => i.Id).HasColumnName("id");
+            entity.Property(i => i.UserId).HasColumnName("user_id");
+            entity.Property(i => i.ImageUrl).HasColumnName("image_url");
+            entity.Property(i => i.Title).HasColumnName("title");
+            entity.Property(i => i.Photographer).HasColumnName("photographer");
+            entity.Property(i => i.SourceLink).HasColumnName("source_link");
+            entity.Property(i => i.SavedAt).HasColumnName("saved_at");
         });
     }
 }
