@@ -53,6 +53,7 @@ jobs:
       - name: Run tests
         env:
           TEST_DB_CONNECTION: ${{ secrets.TEST_DB_CONNECTION }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         run: |
           echo "TEST_DB_CONNECTION is set: ${TEST_DB_CONNECTION:0:10}..." # optional sanity check
           dotnet build
