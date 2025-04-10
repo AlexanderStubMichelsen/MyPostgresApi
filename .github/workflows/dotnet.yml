@@ -1,4 +1,4 @@
-name: .NET Integration Tests
+name: .NET 9 Integration Tests
 
 on:
   push:
@@ -32,10 +32,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
+      - name: Install .NET 9.0 Preview SDK
+        run: |
+          wget https://dotnetcli.azureedge.net/dotnet/Sdk/9.0.100-preview.3.24172.9/dotnet-sdk-9.0.100-preview.3.24172.9-linux-x64.tar.gz
+          mkdir -p "$HOME/dotnet"
+          tar zxf dotnet-sdk-9.0.100-preview.3.24172.9-linux-x64.tar.gz -C "$HOME/dotnet"
+          echo "$HOME/dotnet" >> $GITHUB_PATH
+          echo "DOTNET_ROOT=$HOME/dotnet" >> $GITHUB_ENV
+
+      - name: Verify .NET version
+        run: dotnet --version
 
       - name: Restore dependencies
         run: dotnet restore
