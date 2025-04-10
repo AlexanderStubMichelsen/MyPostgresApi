@@ -52,6 +52,9 @@ jobs:
 
       - name: Run tests
         run: |
+          # Export env vars before running dotnet test
           export $(grep -v '^#' .env | xargs)
+          echo "TEST_DB_CONNECTION=$TEST_DB_CONNECTION"
           dotnet build
           dotnet test --no-build --verbosity normal
+        
