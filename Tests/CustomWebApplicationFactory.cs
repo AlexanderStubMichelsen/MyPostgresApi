@@ -56,7 +56,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
                 // Force EF to create schema and tables from model
                 db.Database.EnsureCreated();
-
                 // Log tables registered by EF Core
                 var tables = db.Model.GetEntityTypes().Select(e => e.GetTableName()).Distinct();
                 Console.WriteLine("📦 Tables registered with EF:");

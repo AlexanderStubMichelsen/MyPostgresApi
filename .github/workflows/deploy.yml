@@ -18,7 +18,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '9.0' # Adjust to your .NET version
+        dotnet-version: '8.0.408' # Adjust to your .NET version
 
     # Publish the application
     - name: Publish application
