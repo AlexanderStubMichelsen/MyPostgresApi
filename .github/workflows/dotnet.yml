@@ -43,7 +43,7 @@ jobs:
       - name: Print TEST_DB_CONNECTION for sanity check
         run: |
           echo "🔍 TEST_DB_CONNECTION preview:"
-          echo "Host=localhost;Port=5432;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Database=postgres;Search Path=test_schema"
+          echo "TEST_DB_CONNECTION=Host=localhost;Port=5432;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Database=postgres;Search Path=test_schema"
 
       - name: Run Tests
         run: dotnet test
