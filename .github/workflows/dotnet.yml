@@ -1,4 +1,4 @@
-name: .NET 9 Integration Tests
+name: .NET 8 Integration Tests
 
 on:
   push:
@@ -32,14 +32,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install .NET 9.0 Preview SDK
-        run: |
-            curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 9.0.100-preview.2.24128.3 --install-dir $HOME/dotnet
-            echo "$HOME/dotnet" >> $GITHUB_PATH
-            echo "DOTNET_ROOT=$HOME/dotnet" >> $GITHUB_ENV
-
-      - name: Verify .NET version
-        run: dotnet --version
+      - name: Set up .NET SDK 8.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Restore dependencies
         run: dotnet restore
