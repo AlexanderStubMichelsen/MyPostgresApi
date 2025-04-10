@@ -32,12 +32,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install .NET 9.0 Preview SDK
+      - name: Install .NET 9.0 SDK
         run: |
-            curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 9.0.100-preview --install-dir $HOME/dotnet
-            echo "$HOME/dotnet" >> $GITHUB_PATH
-            echo "DOTNET_ROOT=$HOME/dotnet" >> $GITHUB_ENV
-    
+          curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --version 9.0.4 --install-dir $HOME/dotnet
+          echo "$HOME/dotnet" >> $GITHUB_PATH
+          echo "DOTNET_ROOT=$HOME/dotnet" >> $GITHUB_ENV
+
       - name: Verify .NET version
         run: dotnet --version
 
