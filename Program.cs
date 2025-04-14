@@ -1,34 +1,26 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using DotNetEnv;  // Load environment variables
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using DotNetEnv;
 using System.Text;
 using System.Web;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Determine if running in testing mode early
+// 🌱 Determine if running in testing mode
 var isTesting = builder.Environment.EnvironmentName == "Testing";
 
-// Load correct .env file
-if (isTesting)
-{
-    _ = DotNetEnv.Env.Load(".env.test");
-}
-else
-{
-    _ = DotNetEnv.Env.Load(); // defaults to `.env`
-}
+// 🌱 Load environment variables
+_ = isTesting ? DotNetEnv.Env.Load(".env.test") : DotNetEnv.Env.Load();
 
-// Retrieve JWT secret key
-var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-if (string.IsNullOrEmpty(jwtSecretKey))
-{
-    throw new InvalidOperationException("JWT_SECRET_KEY is not set in the .env file.");
-}
+// 🔐 Load JWT secret
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+    ?? throw new InvalidOperationException("JWT_SECRET_KEY is not set in the .env file.");
 
+// 🔗 Build connection string
 string connectionString;
-
 if (isTesting)
 {
     connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION")
@@ -44,30 +36,40 @@ else
                        $"Password={password}";
 }
 
+// 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// ✅ Add CORS Policy
+// ❤️ Health Checks + UI
+builder.Services.AddHealthChecks()
+    .AddNpgSql(connectionString, name: "postgres", failureStatus: HealthStatus.Degraded);
+
+builder.Services.AddHealthChecksUI(options =>
+{
+    options.SetEvaluationTimeInSeconds(15);
+    options.AddHealthCheckEndpoint("API Health", "/health");
+}).AddInMemoryStorage();
+
+// 🌍 CORS Policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp",
-        policy =>
-        {
-            _ = policy.WithOrigins(
-                "http://localhost:5173",
-                "http://localhost:5174",
-                "http://localhost:5175",
-                "http://172.105.95.18",
-                "http://172.105.95.18:80",
-                "http://172.105.95.18:3000",
-                "http://172.105.95.18:5019")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        });
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        _ = policy.WithOrigins(
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+            "http://172.105.95.18",
+            "http://172.105.95.18:80",
+            "http://172.105.95.18:3000",
+            "http://172.105.95.18:5019")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
-// ✅ Add JWT Authentication
+// 🔐 JWT Authentication
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
@@ -81,15 +83,18 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
+// 📦 Swagger + Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// 🚦 Rate Limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("SignUpPolicy", context =>
-        RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", ip =>
-            new FixedWindowRateLimiterOptions
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 5,
                 Window = TimeSpan.FromMinutes(1),
@@ -106,6 +111,7 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// 🛠️ Dev-only config
 if (app.Environment.IsDevelopment())
 {
     _ = app.UseDeveloperExceptionPage();
@@ -113,16 +119,32 @@ if (app.Environment.IsDevelopment())
     _ = app.UseSwaggerUI();
 }
 
-app.UseCors("AllowReactApp"); // ✅ Must be before UseRouting, UseAuthentication, etc.
+app.UseCors("AllowReactApp");
+app.UseStaticFiles();
 app.UseRouting();
+
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    app.UseRateLimiter(); // Only enable in non-testing environments
+    app.UseRateLimiter();
 }
-app.UseAuthentication(); // Use authentication middleware
+
+app.UseAuthentication();
 app.UseAuthorization();
+
+// 🩺 Health Checks JSON and UI
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecksUI(options =>
+{
+    options.UIPath = "/health-ui";
+    options.ApiPath = "/health-ui-api";
+});
+
 app.MapControllers();
 app.Run();
 
-// ✅ Required for testing purposes with WebApplicationFactory
+// 🧪 Required for integration testing
 public partial class Program { }
