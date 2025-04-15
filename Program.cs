@@ -159,14 +159,13 @@ app.UseMetricsAllMiddleware(); // App.Metrics tracking + /metrics
 // Manually map the /metrics endpoint
 app.Map("/metrics", async context =>
 {
-    var metricsData = metrics.Snapshot.Get();
-    context.Response.ContentType = "text/plain";
-    using var memoryStream = new MemoryStream();
-    await metrics.OutputMetricsFormatters.First().WriteAsync(memoryStream, metricsData, CancellationToken.None);
-    memoryStream.Seek(0, SeekOrigin.Begin);
-    using var reader = new StreamReader(memoryStream);
-    var metricsJson = await reader.ReadToEndAsync();
-    await context.Response.WriteAsync(metricsJson);
+    context.Response.ContentType = "text/plain; version=0.0.4"; // Prometheus expects this format
+    var snapshot = metrics.Snapshot.Get();
+    var formatter = metrics.OutputMetricsFormatters
+        .OfType<MetricsPrometheusTextOutputFormatter>()
+        .First();
+
+    await formatter.WriteAsync(context.Response.Body, snapshot, CancellationToken.None);
 });
 
 app.MapControllers();
