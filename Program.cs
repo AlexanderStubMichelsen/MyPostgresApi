@@ -1,46 +1,57 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using App.Metrics;
+using App.Metrics.AspNetCore;
+using App.Metrics.Formatters.Prometheus;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;
 using System.Text;
 using System.Web;
 using System.Threading.RateLimiting;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🌱 Determine if running in testing mode
+// 🌱 Load environment
 var isTesting = builder.Environment.EnvironmentName == "Testing";
+_ = isTesting ? Env.Load(".env.test") : Env.Load();
 
-// 🌱 Load environment variables
-_ = isTesting ? DotNetEnv.Env.Load(".env.test") : DotNetEnv.Env.Load();
-
-// 🔐 Load JWT secret
+// 🔐 Load secret
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
-    ?? throw new InvalidOperationException("JWT_SECRET_KEY is not set in the .env file.");
+    ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
 
-// 🔗 Build connection string
+// 🔗 Connection string
 string connectionString;
 if (isTesting)
 {
     connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION")
-        ?? throw new InvalidOperationException("TEST_DB_CONNECTION environment variable is not set.");
+        ?? throw new InvalidOperationException("TEST_DB_CONNECTION is missing.");
 }
 else
 {
     var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
-    connectionString = $"Host={Env.GetString("DB_HOST")};" +
-                       $"Port={Env.GetString("DB_PORT")};" +
-                       $"Database={Env.GetString("DB_NAME")};" +
-                       $"Username={Env.GetString("DB_USER")};" +
-                       $"Password={password}";
+    connectionString = $"Host={Env.GetString("DB_HOST")};Port={Env.GetString("DB_PORT")};" +
+                       $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
 }
+
+// 📊 App.Metrics setup
+var metrics = AppMetrics.CreateDefaultBuilder()
+    .Configuration.Configure(options =>
+    {
+        options.AddAppTag("MyPostgresApi");
+        options.AddEnvTag(builder.Environment.EnvironmentName);
+    })
+    .OutputMetrics.AsPrometheusPlainText() // 👈 Important for Prometheus
+    .Build();
+
+builder.Host.UseMetricsWebTracking(); // Middleware tracking
+builder.Host.UseMetrics();     // Inject App.Metrics globally
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// ❤️ Health Checks + UI
+// ❤️ Health Checks
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString, name: "postgres", failureStatus: HealthStatus.Degraded);
 
@@ -50,12 +61,12 @@ builder.Services.AddHealthChecksUI(options =>
     options.AddHealthCheckEndpoint("API Health", "/health");
 }).AddInMemoryStorage();
 
-// 🌍 CORS Policy
+// 🌍 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        _ = policy.WithOrigins(
+        policy.WithOrigins(
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5175",
@@ -69,7 +80,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 🔐 JWT Authentication
+// 🔐 JWT
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
@@ -82,11 +93,6 @@ builder.Services.AddAuthentication("Bearer")
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecretKey))
         };
     });
-
-// 📦 Swagger + Controllers
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 // 🚦 Rate Limiting
 builder.Services.AddRateLimiter(options =>
@@ -109,14 +115,18 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// 🔧 Swagger & Controllers
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
-// 🛠️ Dev-only config
 if (app.Environment.IsDevelopment())
 {
-    _ = app.UseDeveloperExceptionPage();
-    _ = app.UseSwagger();
-    _ = app.UseSwaggerUI();
+    app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseCors("AllowReactApp");
@@ -131,7 +141,7 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 🩺 Health Checks JSON and UI
+// 🩺 Health checks
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
@@ -143,8 +153,10 @@ app.MapHealthChecksUI(options =>
     options.ApiPath = "/health-ui-api";
 });
 
+app.UseMetricsAllMiddleware(); // App.Metrics tracking + /metrics
+
 app.MapControllers();
+
 app.Run();
 
-// 🧪 Required for integration testing
 public partial class Program { }
