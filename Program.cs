@@ -36,16 +36,14 @@ else
 
 // 📊 App.Metrics setup
 var metrics = AppMetrics.CreateDefaultBuilder()
-    .Configuration.Configure(options =>
-    {
-        options.AddAppTag("MyPostgresApi");
-        options.AddEnvTag(builder.Environment.EnvironmentName);
-    })
-    .OutputMetrics.AsPrometheusPlainText() // 👈 Important for Prometheus
+    .OutputMetrics.AsPrometheusPlainText() // very important!
     .Build();
 
-builder.Host.UseMetricsWebTracking(); // Middleware tracking
-builder.Host.UseMetrics();     // Inject App.Metrics globally
+builder.Services.AddMetrics(metrics);
+builder.Services.AddMetricsTrackingMiddleware();
+builder.Services.AddMetricsEndpoints();
+
+builder.Host.ConfigureMetrics(metrics);
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -154,18 +152,25 @@ app.MapHealthChecksUI(options =>
 });
 
 // 🌟 Expose the /metrics endpoint manually
-app.UseMetricsAllMiddleware(); // App.Metrics tracking + /metrics
+// app.UseMetricsAllMiddleware(); // App.Metrics tracking + /metrics
 
 // Manually map the /metrics endpoint
 app.Map("/metrics", async context =>
 {
-    context.Response.ContentType = "text/plain; version=0.0.4"; // Prometheus expects this format
-    var snapshot = metrics.Snapshot.Get();
-    var formatter = metrics.OutputMetricsFormatters
-        .OfType<MetricsPrometheusTextOutputFormatter>()
-        .First();
+    try
+    {
+        context.Response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
 
-    await formatter.WriteAsync(context.Response.Body, snapshot, CancellationToken.None);
+        var snapshot = metrics.Snapshot.Get();
+        var formatter = new MetricsPrometheusTextOutputFormatter();
+
+        await formatter.WriteAsync(context.Response.Body, snapshot, CancellationToken.None);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Error writing metrics: " + ex.Message);
+        await context.Response.WriteAsync($"Failed to generate metrics: {ex.Message}");
+    }
 });
 
 app.MapControllers();
