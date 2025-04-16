@@ -137,6 +137,9 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
+// 📊 Add this line to expose /metrics automatically
+app.UseMetricsAllEndpoints();   // 👈 This exposes the /metrics endpoint
+
 // 🩺 Health checks
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
