@@ -32,16 +32,14 @@ else
                        $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
 }
 
-// 📊 App.Metrics setup with HTTP request tracking
+// 📊 App.Metrics setup for Prometheus
 var metrics = AppMetrics.CreateDefaultBuilder()
     .OutputMetrics.AsPrometheusPlainText()
     .Build();
 
-builder.Host.ConfigureMetrics(metrics);  // Configure metrics for the host
-
-builder.Services.AddMetrics(metrics);  // Register metrics
-builder.Services.AddMetricsTrackingMiddleware(); // Middleware to track HTTP metrics
-builder.Services.AddMetricsEndpoints();          // Expose /metrics endpoint
+builder.Host.ConfigureMetrics(metrics);
+builder.Services.AddMetrics(metrics);
+builder.Services.AddMetricsTrackingMiddleware(); // Optional request tracking middleware
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -137,38 +135,20 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 📊 Expose the /metrics endpoint automatically
-// app.UseMetricsTrackingMiddleware(); // logs per-request metrics (removed as it's redundant)
-// app.UseMetricsServer(); // Removed as metrics are already handled by UseMetricsAllMiddleware
-// 📊 Expose Prometheus metrics in plain text format
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path == "/metrics")
-    {
-        context.Response.ContentType = "text/plain; version=0.0.4";
-        await next();
-    }
-    else
-    {
-        await next();
-    }
-});
+// 📈 Metrics middleware and endpoint (Prometheus-compatible)
+app.UseMetricsAllMiddleware();
+app.UseMetricsAllEndpoints(); // Handles /metrics endpoint (Prometheus plaintext)
 
 // 🩺 Health checks
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
 });
-
 app.MapHealthChecksUI(options =>
 {
     options.UIPath = "/health-ui";
     options.ApiPath = "/health-ui-api";
 });
-
-// 📈 Metrics middleware and endpoint
-app.UseMetricsAllMiddleware();  // Adds middleware for tracking requests etc.
-app.UseMetricsAllEndpoints();   // Maps actual endpoints like /metrics
 
 app.MapControllers();
 
