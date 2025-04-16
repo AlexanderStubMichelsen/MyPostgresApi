@@ -1,4 +1,6 @@
 using App.Metrics;
+using App.Metrics.Formatters.Prometheus;
+using App.Metrics.AspNetCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -37,9 +39,19 @@ var metrics = AppMetrics.CreateDefaultBuilder()
     .OutputMetrics.AsPrometheusPlainText()
     .Build();
 
-builder.Host.ConfigureMetrics(metrics);
+builder.Host.UseMetrics(options =>
+{
+    options.EndpointOptions = endpoints =>
+    {
+        endpoints.MetricsTextEndpointOutputFormatter = new MetricsPrometheusTextOutputFormatter();
+        endpoints.MetricsEndpointOutputFormatter = new MetricsPrometheusTextOutputFormatter();
+        endpoints.EnvironmentInfoEndpointEnabled = false;
+    };
+});
+
 builder.Services.AddMetrics(metrics);
-builder.Services.AddMetricsTrackingMiddleware(); // Optional request tracking middleware
+builder.Services.AddMetricsTrackingMiddleware();
+builder.Services.AddMetricsEndpoints(); // This is still needed for other endpoints
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -135,11 +147,18 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 📈 Metrics middleware and endpoint (Prometheus-compatible)
+// Enable App.Metrics middleware for collecting and tracking metrics across all requests
 app.UseMetricsAllMiddleware();
-app.UseMetricsAllEndpoints(); // Handles /metrics endpoint (Prometheus plaintext)
 
-// 🩺 Health checks
+// Manually map Prometheus metrics endpoint
+app.MapGet("/metrics", async context =>
+{
+    var metricsText = metrics.Snapshot.Get().ToString() ?? string.Empty;
+    await context.Response.WriteAsync(metricsText);
+});
+
+// Use top-level route registrations instead of UseEndpoints
+app.MapControllers();  // Controllers with actions
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
@@ -149,8 +168,6 @@ app.MapHealthChecksUI(options =>
     options.UIPath = "/health-ui";
     options.ApiPath = "/health-ui-api";
 });
-
-app.MapControllers();
 
 app.Run();
 
