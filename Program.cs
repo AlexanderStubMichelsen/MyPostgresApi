@@ -1,6 +1,4 @@
 using App.Metrics;
-using App.Metrics.AspNetCore;
-using App.Metrics.Formatters.Prometheus;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -34,16 +32,16 @@ else
                        $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
 }
 
-// 📊 App.Metrics setup
+// 📊 App.Metrics setup with HTTP request tracking
 var metrics = AppMetrics.CreateDefaultBuilder()
-    .OutputMetrics.AsPrometheusPlainText() // very important!
+    .OutputMetrics.AsPrometheusPlainText()
     .Build();
 
-builder.Services.AddMetrics(metrics);
-builder.Services.AddMetricsTrackingMiddleware();
-builder.Services.AddMetricsEndpoints();
-
 builder.Host.ConfigureMetrics(metrics);
+
+builder.Services.AddMetrics(metrics);
+builder.Services.AddMetricsTrackingMiddleware(); // ⬅️ Track HTTP metrics
+builder.Services.AddMetricsEndpoints();          // ⬅️ Enable /metrics endpoint
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -151,27 +149,9 @@ app.MapHealthChecksUI(options =>
     options.ApiPath = "/health-ui-api";
 });
 
-// 🌟 Expose the /metrics endpoint manually
-// app.UseMetricsAllMiddleware(); // App.Metrics tracking + /metrics
-
-// Manually map the /metrics endpoint
-app.Map("/metrics", async context =>
-{
-    try
-    {
-        context.Response.ContentType = "text/plain; version=0.0.4; charset=utf-8";
-
-        var snapshot = metrics.Snapshot.Get();
-        var formatter = new MetricsPrometheusTextOutputFormatter();
-
-        await formatter.WriteAsync(context.Response.Body, snapshot, CancellationToken.None);
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("Error writing metrics: " + ex.Message);
-        await context.Response.WriteAsync($"Failed to generate metrics: {ex.Message}");
-    }
-});
+// 📈 Metrics middleware and endpoint
+app.UseMetricsAllMiddleware(); // Enables request tracking and /metrics
+// Metrics endpoints are already handled by `UseMetricsAllMiddleware`
 
 app.MapControllers();
 
