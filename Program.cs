@@ -37,11 +37,11 @@ var metrics = AppMetrics.CreateDefaultBuilder()
     .OutputMetrics.AsPrometheusPlainText()
     .Build();
 
-builder.Host.ConfigureMetrics(metrics);
+builder.Host.ConfigureMetrics(metrics);  // Configure metrics for the host
 
-builder.Services.AddMetrics(metrics);
-builder.Services.AddMetricsTrackingMiddleware(); // ⬅️ Track HTTP metrics
-builder.Services.AddMetricsEndpoints();          // ⬅️ Enable /metrics endpoint
+builder.Services.AddMetrics(metrics);  // Register metrics
+builder.Services.AddMetricsTrackingMiddleware(); // Middleware to track HTTP metrics
+builder.Services.AddMetricsEndpoints();          // Expose /metrics endpoint
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -137,8 +137,22 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 📊 Add this line to expose /metrics automatically
-app.UseMetricsAllEndpoints();   // 👈 This exposes the /metrics endpoint
+// 📊 Expose the /metrics endpoint automatically
+// app.UseMetricsTrackingMiddleware(); // logs per-request metrics (removed as it's redundant)
+// app.UseMetricsServer(); // Removed as metrics are already handled by UseMetricsAllMiddleware
+// 📊 Expose Prometheus metrics in plain text format
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/metrics")
+    {
+        context.Response.ContentType = "text/plain; version=0.0.4";
+        await next();
+    }
+    else
+    {
+        await next();
+    }
+});
 
 // 🩺 Health checks
 app.MapHealthChecks("/health", new HealthCheckOptions
@@ -153,8 +167,8 @@ app.MapHealthChecksUI(options =>
 });
 
 // 📈 Metrics middleware and endpoint
-app.UseMetricsAllMiddleware(); // Enables request tracking and /metrics
-// Metrics endpoints are already handled by `UseMetricsAllMiddleware`
+app.UseMetricsAllMiddleware();  // Adds middleware for tracking requests etc.
+app.UseMetricsAllEndpoints();   // Maps actual endpoints like /metrics
 
 app.MapControllers();
 
