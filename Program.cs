@@ -151,11 +151,7 @@ app.UseAuthorization();
 app.UseMetricsAllMiddleware();
 
 // Manually map Prometheus metrics endpoint
-app.MapGet("/metrics", async context =>
-{
-    var metricsText = metrics.Snapshot.Get().ToString() ?? string.Empty;
-    await context.Response.WriteAsync(metricsText);
-});
+app.UseMetricsAllEndpoints();
 
 // Use top-level route registrations instead of UseEndpoints
 app.MapControllers();  // Controllers with actions
