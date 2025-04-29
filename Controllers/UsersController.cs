@@ -37,7 +37,7 @@ public class UsersController : ControllerBase, IUsersController
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Email ?? string.Empty)
             }),
-            Expires = DateTime.UtcNow.AddHours(1),
+            Expires = DateTime.UtcNow.AddMinutes(10),
             SigningCredentials = credentials
         };
 

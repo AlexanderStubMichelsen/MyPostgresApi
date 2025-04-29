@@ -36,7 +36,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6I
 ###
 
 GET http://localhost:5019/api/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI2OSIsInVuaXF1ZV9uYW1lIjoiZXFAZXEuZGsiLCJuYmYiOjE3NDU5MTE3OTAsImV4cCI6MTc0NTkxNTM5MCwiaWF0IjoxNzQ1OTExNzkwfQ.ZM_gO_wKHJTioS7XBa43GrhskcgflQQbizdiVTNYSnM
 ###
 
 POST http://localhost:5019/api/users/login

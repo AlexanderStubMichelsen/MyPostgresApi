@@ -79,7 +79,13 @@ builder.Services.AddCors(options =>
             "http://172.105.95.18",
             "http://172.105.95.18:80",
             "http://172.105.95.18:3000",
-            "http://172.105.95.18:5019")
+            "http://172.105.95.18:5019",
+            "http://devdisplay.online",
+            "http://devdisplay.online:80",
+            "http://devdisplay.online:3000",
+            "http://devdisplay.online:5019"
+        )
+
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
