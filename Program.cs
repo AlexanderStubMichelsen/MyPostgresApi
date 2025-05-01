@@ -16,19 +16,32 @@ var builder = WebApplication.CreateBuilder(args);
 var isTesting = builder.Environment.EnvironmentName == "Testing";
 _ = isTesting ? Env.Load(".env.test") : Env.Load();
 
-// 🔧 Configure Kestrel for HTTPS using appsettings
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.ListenAnyIP(5019);  // Listen on HTTP without SSL
-});
-
-
 // 🔐 Load secrets from environment
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
 
 var certPassword = Environment.GetEnvironmentVariable("CERT_PASSWORD")
     ?? throw new InvalidOperationException("CERT_PASSWORD is missing.");
+
+// 🔧 Configure Kestrel for HTTPS using appsettings
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(5019);  // Local HTTP for development
+    });
+}
+else
+{
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(5019);  // HTTP
+        options.ListenAnyIP(443, listenOptions =>  // HTTPS for production
+        {
+            listenOptions.UseHttps("/var/www/cert.pfx", certPassword);
+        });
+    });
+}
 
 // 🔗 Build connection string
 string connectionString;
