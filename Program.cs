@@ -141,7 +141,14 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // 🌐 URLs (set in code — override with appsettings or launch.json if needed)
-app.Urls.Add("http://localhost:5000");
+if (app.Environment.IsDevelopment())
+{
+    app.Urls.Add("http://localhost:5000");  // Local development URL
+}
+else
+{
+    app.Urls.Add("https://devdisplay.online");  // Production URL
+}
 
 if (app.Environment.IsDevelopment())
 {
