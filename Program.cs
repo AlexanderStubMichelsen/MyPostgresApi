@@ -96,14 +96,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://172.105.95.18",
-            "http://172.105.95.18:80",
-            "http://172.105.95.18:3000",
-            "http://172.105.95.18:5019",
-            "https://devdisplay.online"
+            "http://localhost:5173",  // Allow local development
+            "https://devdisplay.online",  // Allow production URL
+            "https://www.devdisplay.online"  // Allow production with www
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
