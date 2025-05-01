@@ -19,11 +19,9 @@ _ = isTesting ? Env.Load(".env.test") : Env.Load();
 // 🔧 Configure Kestrel for HTTPS using appsettings
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(5019, listenOptions =>
-    {
-        listenOptions.UseHttps("/var/www/cert.pem", "/var/www/key.pem");
-    });
+    options.ListenAnyIP(5019);  // Listen on HTTP without SSL
 });
+
 
 // 🔐 Load secrets from environment
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
@@ -151,7 +149,6 @@ var app = builder.Build();
 
 // 🌐 URLs (set in code — override with appsettings or launch.json if needed)
 app.Urls.Add("http://localhost:5000");
-app.Urls.Add("https://0.0.0.0:5019");
 
 if (app.Environment.IsDevelopment())
 {
