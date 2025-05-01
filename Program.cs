@@ -36,7 +36,7 @@ else
     builder.WebHost.ConfigureKestrel(options =>
     {
         options.ListenAnyIP(5019);  // HTTP
-        options.ListenAnyIP(443, listenOptions =>  // HTTPS for production
+        options.ListenAnyIP(5019, listenOptions =>  // HTTPS for production
         {
             listenOptions.UseHttps("/var/www/cert.pfx", certPassword);
         });
