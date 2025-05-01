@@ -90,8 +90,7 @@ builder.Services.AddCors(options =>
             "http://172.105.95.18:80",
             "http://172.105.95.18:3000",
             "http://172.105.95.18:5019",
-            "https://devdisplay.online",
-            "https://www.devdisplay.online"
+            "https://devdisplay.online"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
