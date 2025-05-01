@@ -19,7 +19,10 @@ _ = isTesting ? Env.Load(".env.test") : Env.Load();
 // 🔧 Configure Kestrel for HTTPS using appsettings
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Configure(builder.Configuration.GetSection("Kestrel"));
+    options.ListenAnyIP(5019, listenOptions =>
+    {
+        listenOptions.UseHttps("/var/www/cert.pem", "/var/www/key.pem");
+    });
 });
 
 // 🔐 Load secrets from environment
@@ -92,7 +95,11 @@ builder.Services.AddCors(options =>
             "https://devdisplay.online",
             "https://devdisplay.online:80",
             "https://devdisplay.online:3000",
-            "https://devdisplay.online:5019"
+            "https://devdisplay.online:5019",
+            "https://www.devdisplay.online",
+            "https://www.devdisplay.online:80",
+            "https://www.devdisplay.online:3000",
+            "https://www.devdisplay.online:5019"
         )
         .AllowAnyHeader()
         .AllowAnyMethod()
