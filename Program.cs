@@ -12,15 +12,24 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 🌱 Load environment
+// 🌱 Load environment variables
 var isTesting = builder.Environment.EnvironmentName == "Testing";
 _ = isTesting ? Env.Load(".env.test") : Env.Load();
 
-// 🔐 Load secret
+// 🔧 Configure Kestrel for HTTPS using appsettings
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Configure(builder.Configuration.GetSection("Kestrel"));
+});
+
+// 🔐 Load secrets from environment
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
 
-// 🔗 Connection string
+var certPassword = Environment.GetEnvironmentVariable("CERT_PASSWORD")
+    ?? throw new InvalidOperationException("CERT_PASSWORD is missing.");
+
+// 🔗 Build connection string
 string connectionString;
 if (isTesting)
 {
@@ -51,7 +60,7 @@ builder.Host.UseMetrics(options =>
 
 builder.Services.AddMetrics(metrics);
 builder.Services.AddMetricsTrackingMiddleware();
-builder.Services.AddMetricsEndpoints(); // This is still needed for other endpoints
+builder.Services.AddMetricsEndpoints();
 
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -85,14 +94,13 @@ builder.Services.AddCors(options =>
             "https://devdisplay.online:3000",
             "https://devdisplay.online:5019"
         )
-
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
-// 🔐 JWT
+// 🔐 JWT Authentication
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
@@ -127,12 +135,16 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-// 🔧 Swagger & Controllers
+// 🧭 Swagger & Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// 🌐 URLs (set in code — override with appsettings or launch.json if needed)
+app.Urls.Add("http://localhost:5000");
+app.Urls.Add("https://0.0.0.0:5019");
 
 if (app.Environment.IsDevelopment())
 {
@@ -153,14 +165,13 @@ if (!app.Environment.IsEnvironment("Testing"))
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Enable App.Metrics middleware for collecting and tracking metrics across all requests
+// 📊 App.Metrics middleware
 app.UseMetricsAllMiddleware();
-
-// Manually map Prometheus metrics endpoint
 app.UseMetricsAllEndpoints();
 
-// Use top-level route registrations instead of UseEndpoints
-app.MapControllers();  // Controllers with actions
+// 📡 Routing
+app.MapControllers();
+
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
