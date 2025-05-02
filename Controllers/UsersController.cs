@@ -53,14 +53,30 @@ public class UsersController : ControllerBase, IUsersController
         if (string.IsNullOrEmpty(user.Password))
             return BadRequest("Password is required.");
 
+        // Check if the user already exists (using email or other unique identifier)
+        var existingUser = await _context.Users
+                                          .FirstOrDefaultAsync(u => u.Email == user.Email);
+
+        if (existingUser != null)
+        {
+            // Return a JSON response with a message and HTTP status 409
+            return Conflict(new { message = "A user with this email already exists." });
+        }
+
+        // Hash the password
         user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
+        // Add the new user to the context
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
+        // Generate JWT token
         var token = GenerateJwtToken(user);
+
+        // Map the user to a DTO (Data Transfer Object)
         var userDto = user.ToDto();
 
+        // Return the response with the created user and token
         return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new
         {
             userDto,
