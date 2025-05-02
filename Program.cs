@@ -28,15 +28,15 @@ if (builder.Environment.IsDevelopment())
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(5019);  // Local HTTP for development
+        options.ListenAnyIP(5020);  // Local HTTP for development
     });
 }
 else
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(5019);  // HTTP
-        options.ListenAnyIP(5019, listenOptions =>  // HTTPS for production
+        options.ListenAnyIP(5020);  // HTTP
+        options.ListenAnyIP(5021, listenOptions =>  // HTTPS for production
         {
             listenOptions.UseHttps("/var/www/cert.pfx", certPassword);
         });
@@ -147,16 +147,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// 🌐 URLs (set in code — override with appsettings or launch.json if needed)
-if (app.Environment.IsDevelopment())
-{
-    app.Urls.Add("http://localhost:5000");  // Local development URL
-}
-else
-{
-    app.Urls.Add("https://devdisplay.online");  // Production URL
-}
 
 if (app.Environment.IsDevelopment())
 {
