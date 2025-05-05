@@ -20,28 +20,11 @@ _ = isTesting ? Env.Load(".env.test") : Env.Load();
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
 
-var certPassword = Environment.GetEnvironmentVariable("CERT_PASSWORD")
-    ?? throw new InvalidOperationException("CERT_PASSWORD is missing.");
-
-// 🔧 Configure Kestrel for HTTPS using appsettings
-if (builder.Environment.IsDevelopment())
+// 🔧 Configure Kestrel for HTTP only — Apache handles HTTPS
+builder.WebHost.ConfigureKestrel(options =>
 {
-    builder.WebHost.ConfigureKestrel(options =>
-    {
-        options.ListenAnyIP(5019);  // Change this to 5019 for local HTTP
-    });
-}
-else
-{
-    builder.WebHost.ConfigureKestrel(options =>
-    {
-        options.ListenAnyIP(5019);  // Change this to 5019 for HTTP
-        options.ListenAnyIP(5021, listenOptions =>  // Keep 5021 for HTTPS if needed
-        {
-            listenOptions.UseHttps("/var/www/cert.pfx", certPassword);
-        });
-    });
-}
+    options.ListenAnyIP(5019); // Kestrel runs on plain HTTP
+});
 
 // 🔗 Build connection string
 string connectionString;
