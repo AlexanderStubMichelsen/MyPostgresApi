@@ -39,7 +39,7 @@ GET http://localhost:5019/api/users
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI2OSIsInVuaXF1ZV9uYW1lIjoiZXFAZXEuZGsiLCJuYmYiOjE3NDU5MTE3OTAsImV4cCI6MTc0NTkxNTM5MCwiaWF0IjoxNzQ1OTExNzkwfQ.ZM_gO_wKHJTioS7XBa43GrhskcgflQQbizdiVTNYSnM
 ###
 
-POST http://localhost:5019/api/users/login
+POST {{baseUrl}}/users/login
 Content-Type: application/json
 
 {
