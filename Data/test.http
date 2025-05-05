@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:5019/api
+@baseUrl = devdisplay.online/api
 
 ###
 
@@ -43,8 +43,8 @@ POST http://localhost:5019/api/users/login
 Content-Type: application/json
 
 {
-    "email": "eq@eq.dk",
-    "password": "eq"
+    "email": "ss5@ss5.com",
+    "password": "ss5"
 }
 
 ###
