@@ -28,15 +28,15 @@ if (builder.Environment.IsDevelopment())
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(5020);  // Local HTTP for development
+        options.ListenAnyIP(5019);  // Change this to 5019 for local HTTP
     });
 }
 else
 {
     builder.WebHost.ConfigureKestrel(options =>
     {
-        options.ListenAnyIP(5020);  // HTTP
-        options.ListenAnyIP(5021, listenOptions =>  // HTTPS for production
+        options.ListenAnyIP(5019);  // Change this to 5019 for HTTP
+        options.ListenAnyIP(5021, listenOptions =>  // Keep 5021 for HTTPS if needed
         {
             listenOptions.UseHttps("/var/www/cert.pfx", certPassword);
         });
