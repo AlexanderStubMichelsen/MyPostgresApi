@@ -13,4 +13,3 @@ bld/
 [Oo]bj/
 .env.test
 publish/
-appsettings.Development.json

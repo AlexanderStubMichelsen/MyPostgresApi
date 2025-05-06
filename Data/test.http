@@ -1,4 +1,4 @@
-@baseUrl = http://devdisplay.online:5019/api
+@baseUrl = devdisplay.online/api
 
 ###
 
