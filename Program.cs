@@ -1,51 +1,46 @@
 using App.Metrics;
-using App.Metrics.AspNetCore;
 using App.Metrics.Formatters.Prometheus;
-using DotNetEnv;
+using App.Metrics.AspNetCore;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using DotNetEnv;
 using System.Text;
 using System.Web;
 using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-{
-    Args = args,
-    EnvironmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"
-});
-
-// 🧼 Clear default config sources (to ignore appsettings.json)
-builder.Configuration.Sources.Clear();
+var builder = WebApplication.CreateBuilder(args);
 
 // 🌱 Load environment variables
 var isTesting = builder.Environment.EnvironmentName == "Testing";
 _ = isTesting ? Env.Load(".env.test") : Env.Load();
 
-// 🔐 Load required secrets
-var jwtSecretKey = Env.GetString("JWT_SECRET_KEY")
+// 🔐 Load secrets from environment
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
-var dbSchema = Env.GetString("DB_SCHEMA") ?? "maskinen";
-var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
 
-// 🔗 Build connection string
-string connectionString = isTesting
-    ? Env.GetString("TEST_DB_CONNECTION") ?? throw new InvalidOperationException("TEST_DB_CONNECTION is missing.")
-    : $"Host={Env.GetString("DB_HOST")};Port={Env.GetString("DB_PORT")};" +
-      $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
-
-// 🧪 Inject .env values into builder.Configuration
-builder.Configuration["DB_SCHEMA"] = dbSchema;
-builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
-
-// 🔧 Configure Kestrel (Apache handles HTTPS)
+// 🔧 Configure Kestrel for HTTP only — Apache handles HTTPS
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(5019); // Run on HTTP only
+    options.ListenAnyIP(5019); // Kestrel runs on plain HTTP
 });
 
-// 📊 App.Metrics for Prometheus
+// 🔗 Build connection string
+string connectionString;
+if (isTesting)
+{
+    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION")
+        ?? throw new InvalidOperationException("TEST_DB_CONNECTION is missing.");
+}
+else
+{
+    var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
+    connectionString = $"Host={Env.GetString("DB_HOST")};Port={Env.GetString("DB_PORT")};" +
+                       $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
+}
+
+// 📊 App.Metrics setup for Prometheus
 var metrics = AppMetrics.CreateDefaultBuilder()
     .OutputMetrics.AsPrometheusPlainText()
     .Build();
@@ -64,7 +59,7 @@ builder.Services.AddMetrics(metrics);
 builder.Services.AddMetricsTrackingMiddleware();
 builder.Services.AddMetricsEndpoints();
 
-// 🧠 EF Core
+// 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -84,16 +79,17 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp", policy =>
     {
         policy.WithOrigins(
-            "http://localhost:5173",
-            "https://devdisplay.online",
-            "https://www.devdisplay.online")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+            "http://localhost:5173",  // Allow local development
+            "https://devdisplay.online",  // Allow production URL
+            "https://www.devdisplay.online"  // Allow production with www
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
-// 🔐 JWT Auth
+// 🔐 JWT Authentication
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
@@ -128,7 +124,7 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-// 📘 Swagger & Controllers
+// 🧭 Swagger & Controllers
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -155,14 +151,13 @@ app.UseAuthorization();
 app.UseMetricsAllMiddleware();
 app.UseMetricsAllEndpoints();
 
-// 📡 Routes
+// 📡 Routing
 app.MapControllers();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
 });
-
 app.MapHealthChecksUI(options =>
 {
     options.UIPath = "/health-ui";
