@@ -7,6 +7,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;
 using System.Text;
+using System.Web;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,21 +26,19 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(5019); // Kestrel runs on plain HTTP
 });
 
-// 🔗 Build connection string from appsettings
-var connectionStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
-
-if (string.IsNullOrEmpty(connectionStringTemplate))
+// 🔗 Build connection string
+string connectionString;
+if (isTesting)
 {
-    throw new InvalidOperationException("DefaultConnection string is missing from appsettings.json.");
+    connectionString = Environment.GetEnvironmentVariable("TEST_DB_CONNECTION")
+        ?? throw new InvalidOperationException("TEST_DB_CONNECTION is missing.");
 }
-
-// Replace placeholders with environment variable values
-var connectionString = connectionStringTemplate
-    .Replace("${DB_HOST}", Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost")
-    .Replace("${DB_PORT}", Environment.GetEnvironmentVariable("DB_PORT") ?? "5432")
-    .Replace("${DB_NAME}", Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres")
-    .Replace("${DB_USER}", Environment.GetEnvironmentVariable("DB_USER") ?? "postgres")
-    .Replace("${DB_PASSWORD}", Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "default_password");
+else
+{
+    var password = HttpUtility.UrlDecode(Env.GetString("DB_PASSWORD"));
+    connectionString = $"Host={Env.GetString("DB_HOST")};Port={Env.GetString("DB_PORT")};" +
+                       $"Database={Env.GetString("DB_NAME")};Username={Env.GetString("DB_USER")};Password={password}";
+}
 
 // 📊 App.Metrics setup for Prometheus
 var metrics = AppMetrics.CreateDefaultBuilder()
