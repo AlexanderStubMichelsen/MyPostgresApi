@@ -24,6 +24,13 @@ jobs:
     - name: Publish application
       run: dotnet publish -c Release -o ./publish
 
+    # Copy necessary project files
+    - name: Copy additional project files
+      run: |
+        cp MyPostgresApi.csproj ./publish/
+        cp -r Migrations ./publish/
+        cp appsettings.json ./publish/
+
     # Debug SSH configuration
     - name: Debug SSH setup
       env:
@@ -40,7 +47,7 @@ jobs:
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
-        scp -r ./publish/* root@172.105.95.18:../var/www/MyPostgresApi
+        scp -r ./publish/* root@172.105.95.18:/var/www/MyPostgresApi
 
     # Restart the service
     - name: Restart MyPostgresApi service
