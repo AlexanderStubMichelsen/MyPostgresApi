@@ -6,6 +6,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
+  <PropertyGroup>
+    <ParallelizeTestCollections>false</ParallelizeTestCollections>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="App.Metrics" Version="4.4.0-preview.0.4" />
     <PackageReference Include="App.Metrics.AspNetCore" Version="4.4.0-preview.0.10" />

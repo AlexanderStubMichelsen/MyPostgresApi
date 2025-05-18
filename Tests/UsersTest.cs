@@ -7,6 +7,7 @@ using System.Text.Json;
 
 namespace MyPostgresApi.Tests
 {
+    [Collection("NonParallelCollection")]
     public class UsersTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
     {
         private readonly HttpClient _client;
@@ -24,7 +25,8 @@ namespace MyPostgresApi.Tests
         // ✅ This runs before each test
         public async Task InitializeAsync()
         {
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
 
             // Create a test user
             var newUser = new
@@ -44,7 +46,8 @@ namespace MyPostgresApi.Tests
         // ✅ This runs after each test
         public async Task DisposeAsync()
         {
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
             _scope.Dispose();
         }
 
@@ -93,6 +96,7 @@ namespace MyPostgresApi.Tests
             var userDto = createdUser.GetProperty("userDto");
             Assert.Equal(newUser.Name, userDto.GetProperty("name").GetString());
             Assert.Equal(newUser.Email, userDto.GetProperty("email").GetString());
+            Assert.True(userDto.GetProperty("id").GetInt32() > 0);
         }
 
         public class UserResponse
@@ -116,6 +120,9 @@ namespace MyPostgresApi.Tests
             var response = await _client.PostAsJsonAsync("/api/users", newUser);
             response.EnsureSuccessStatusCode();
 
+            var responseJson = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var userDto = responseJson.GetProperty("userDto");
+
             var newUser2 = new
             {
                 Name = "Unique Test User2",
@@ -125,6 +132,9 @@ namespace MyPostgresApi.Tests
 
             var response2 = await _client.PostAsJsonAsync("/api/users", newUser2);
             response2.EnsureSuccessStatusCode();
+
+            var response2Json = await response2.Content.ReadFromJsonAsync<JsonElement>();
+            var userDto2 = response2Json.GetProperty("userDto");
 
             Console.WriteLine(await response.Content.ReadAsStringAsync());
             Console.WriteLine(await response2.Content.ReadAsStringAsync());
@@ -137,9 +147,18 @@ namespace MyPostgresApi.Tests
             // 3 because we have the one we created for the token
             Assert.NotNull(users);
             Assert.Equal(3, users!.Count());
-            Assert.Equal(newUser.Email, users[0].Email);
-            Assert.Equal(newUser2.Name, users.Last().Name);
 
+            Assert.Equal(newUser.Name, users[1].Name);
+            Assert.Equal(newUser.Email, users[1].Email);
+            Assert.True(userDto.GetProperty("id").GetInt32() > 0);
+            Assert.Equal(newUser.Name, userDto.GetProperty("name").GetString());
+            Assert.Equal(newUser.Email, userDto.GetProperty("email").GetString());
+
+            Assert.Equal(newUser2.Name, users[2].Name);
+            Assert.Equal(newUser2.Email, users[2].Email);
+            Assert.True(userDto.GetProperty("id").GetInt32() > 0);
+            Assert.Equal(newUser2.Name, userDto2.GetProperty("name").GetString());
+            Assert.Equal(newUser2.Email, userDto2.GetProperty("email").GetString());
         }
 
         public class LoginResponse
@@ -169,9 +188,21 @@ namespace MyPostgresApi.Tests
             var response = await _client.PostAsJsonAsync("/api/users/login", loginRequest);
             response.EnsureSuccessStatusCode();
 
-            var loginResponse = await response.Content.ReadFromJsonAsync<LoginResponse>();
-            Assert.NotNull(loginResponse);
-            Assert.NotNull(loginResponse!.Token); // Ensure the token is not null
+            var responseJson = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            var userDto = responseJson.GetProperty("userDto");
+
+            var token = responseJson.GetProperty("token").GetString();
+
+            var message = responseJson.GetProperty("message").GetString();
+
+            Assert.Equal("Login successful!", message);
+
+            Assert.True(userDto.GetProperty("id").GetInt32() > 0);
+            Assert.Equal(testUser.Name, userDto.GetProperty("name").GetString());
+            Assert.Equal(testUser.Email, userDto.GetProperty("email").GetString());
+
+            Assert.NotNull(token); // Ensure the token is not null
         }
 
         [Fact]
@@ -228,6 +259,11 @@ namespace MyPostgresApi.Tests
             };
             var changePasswordResponse = await _client.PutAsJsonAsync("/api/users/changepassword", changePasswordRequest);
             changePasswordResponse.EnsureSuccessStatusCode();
+
+            // Check message from response
+            var changePasswordResponseJson = await changePasswordResponse.Content.ReadFromJsonAsync<JsonElement>();
+            var message = changePasswordResponseJson.GetProperty("message").GetString();
+            Assert.Equal("Password updated successfully!", message);
 
             Assert.NotNull(changePasswordResponse);
             Assert.Equal(HttpStatusCode.OK, changePasswordResponse.StatusCode);

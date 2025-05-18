@@ -7,6 +7,7 @@ using MyPostgresApi.Models;
 
 namespace MyPostgresApi.Tests
 {
+    [Collection("NonParallelCollection")]
     public class ImagesTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
     {
         private readonly HttpClient _client;
@@ -24,7 +25,7 @@ namespace MyPostgresApi.Tests
         public async Task InitializeAsync()
         {
             await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
 
             var user = new
             {
@@ -42,7 +43,7 @@ namespace MyPostgresApi.Tests
         public async Task DisposeAsync()
         {
             await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
+            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
             _scope.Dispose();
         }
 
@@ -74,9 +75,40 @@ namespace MyPostgresApi.Tests
                 SourceLink = "https://source.com"
             };
 
+            var imagetwo = new
+            {
+                ImageUrl = "https://example.com/image2.jpg",
+                Title = "Test Image 2",
+                Photographer = "Jane Doe",
+                SourceLink = "https://source2.com"
+            };
+
             var saveResponse = await _client.PostAsJsonAsync("/api/images/save", image);
             saveResponse.EnsureSuccessStatusCode();
+
+            var saveResponseTwo = await _client.PostAsJsonAsync("/api/images/save", imagetwo);
+            saveResponseTwo.EnsureSuccessStatusCode();
+
+            var getResponse = await _client.GetAsync("/api/images/mine");
+            getResponse.EnsureSuccessStatusCode();
+
+            var images = await getResponse.Content.ReadFromJsonAsync<List<SavedImage>>();
+
             Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
+            Assert.NotNull(images);
+            Assert.Equal(2, images.Count);
+
+            Assert.Equal(image.Title, images[0].Title);
+            Assert.Equal(image.ImageUrl, images[0].ImageUrl);
+            Assert.Equal(image.Photographer, images[0].Photographer);
+            Assert.Equal(image.SourceLink, images[0].SourceLink);
+
+            Assert.Equal(imagetwo.Title, images[1].Title);
+            Assert.Equal(imagetwo.ImageUrl, images[1].ImageUrl);
+            Assert.Equal(imagetwo.Photographer, images[1].Photographer);
+            Assert.Equal(imagetwo.SourceLink, images[1].SourceLink);
+
+
         }
 
         [Fact]
@@ -102,58 +134,96 @@ namespace MyPostgresApi.Tests
             Assert.Single(images);
             Assert.Equal(image.Title, images[0].Title);
             Assert.Equal(image.ImageUrl, images[0].ImageUrl);
+            Assert.Equal(image.Photographer, images[0].Photographer);
+            Assert.Equal(image.SourceLink, images[0].SourceLink);
         }
 
         [Fact]
-public async Task DeleteImage()
-{
-    // Create user
-    var user = new
-    {
-        Name = "Image Tester2",
-        Email = "image2@example.com",
-        Password = "Test12342"
-    };
+        public async Task DeleteImage()
+        {
+            // Create user
+            var user = new
+            {
+                Name = "Image Tester2",
+                Email = "image2@example.com",
+                Password = "Test12342"
+            };
 
-    var userResponse = await _client.PostAsJsonAsync("/api/users", user);
-    userResponse.EnsureSuccessStatusCode();
+            var userResponse = await _client.PostAsJsonAsync("/api/users", user);
+            userResponse.EnsureSuccessStatusCode();
 
-    var userResult = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
-    var email = user.Email;
-    var password = user.Password;
+            var userResult = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
+            var email = user.Email;
+            var password = user.Password;
 
-    // Login and set token
-    _token = await GetJwtTokenAsync(email, password);
-    AddAuthHeader();
+            // Login and set token
+            _token = await GetJwtTokenAsync(email, password);
+            AddAuthHeader();
 
-    // Create image (DO NOT include UserId)
-    var image = new
-    {
-        ImageUrl = "https://example.com/image.jpg",
-        Title = "Delete Me",
-        Photographer = "Jane Doe",
-        SourceLink = "https://source.com"
-    };
+            // Create image (DO NOT include UserId)
+            var image = new
+            {
+                ImageUrl = "https://example.com/image.jpg",
+                Title = "Delete Me",
+                Photographer = "Jane Doe",
+                SourceLink = "https://source.com"
+            };
 
-    var saveResponse = await _client.PostAsJsonAsync("/api/images/save", image);
-    saveResponse.EnsureSuccessStatusCode();
+            // Save image
+            var saveResponse = await _client.PostAsJsonAsync("/api/images/save", image);
+            saveResponse.EnsureSuccessStatusCode();
 
-    // Fetch image to get ID
-    var getResponse = await _client.GetAsync("/api/images/mine");
-    getResponse.EnsureSuccessStatusCode();
+            // Create image (DO NOT include UserId)
+            var image2 = new
+            {
+                ImageUrl = "https://example.com/image2.jpg",
+                Title = "Test Image 2",
+                Photographer = "Jane Doe",
+                SourceLink = "https://source2.com"
+            };
 
-    var images = await getResponse.Content.ReadFromJsonAsync<List<SavedImage>>();
-    Assert.NotNull(images);
-    var imageId = images!.First().Id;
+            // Save image
+            var saveResponseTwo = await _client.PostAsJsonAsync("/api/images/save", image2);
+            saveResponseTwo.EnsureSuccessStatusCode();
 
-    // ✅ Delete using the imageId
-    var deleteResponse = await _client.DeleteAsync($"/api/images/{imageId}");
-    deleteResponse.EnsureSuccessStatusCode();
+            // Fetch images to get both IDs
+            var getResponseImages = await _client.GetAsync("/api/images/mine");
+            getResponseImages.EnsureSuccessStatusCode();
 
-    // Confirm it's deleted
-    var confirm = await _client.GetAsync("/api/images/mine");
-    var remaining = await confirm.Content.ReadFromJsonAsync<List<SavedImage>>();
-    Assert.Empty(remaining!);
-}
+            var images = await getResponseImages.Content.ReadFromJsonAsync<List<SavedImage>>();
+            Assert.NotNull(images);
+            Assert.Equal(2, images.Count);
+
+            // Get the images Id's
+            var imageFirstId = images![0].Id;
+            var imageSecondId = images![1].Id;
+
+            // ✅ Delete using the imageId
+            var deleteResponse = await _client.DeleteAsync($"/api/images/{imageFirstId}");
+            deleteResponse.EnsureSuccessStatusCode();
+
+            // Check if the image was deleted
+            var confirm = await _client.GetAsync("/api/images/mine");
+            var remaining = await confirm.Content.ReadFromJsonAsync<List<SavedImage>>();
+
+            // Assert that the first image was deleted
+            Assert.Single(remaining!);
+            Assert.Equal(imageSecondId, remaining![0].Id);
+            Assert.Equal(image2.Title, remaining![0].Title);
+            Assert.Equal(image2.ImageUrl, remaining![0].ImageUrl);
+            Assert.Equal(image2.Photographer, remaining![0].Photographer);
+            Assert.Equal(image2.SourceLink, remaining![0].SourceLink);
+
+            // Delete the second image
+            var deleteResponseTwo = await _client.DeleteAsync($"/api/images/{imageSecondId}");
+            deleteResponseTwo.EnsureSuccessStatusCode();
+
+            // Check if the second image was deleted    
+            var confirmSecond = await _client.GetAsync("/api/images/mine");
+            var remainingSecond = await confirmSecond.Content.ReadFromJsonAsync<List<SavedImage>>();
+
+            // Assert that there is no remaining images
+            Assert.Empty(remainingSecond!);
+        }
     }
-}   
+}
