@@ -40,7 +40,7 @@ jobs:
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
-        scp -r ./publish/* root@172.105.95.18:../var/www/MyPostgresApi
+        scp -r ./publish/* root@172.105.95.18:/var/www/MyPostgresApi
 
     # Restart the service
     - name: Restart MyPostgresApi service
