@@ -1,30 +1,77 @@
-name: Deploy MyPostgresApi
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main # Trigger on pushes to the main branch
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  deploy:
+  build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+       
+      - name: Print TEST_DB_CONNECTION for sanity check
+        run: |
+          echo "🔍 TEST_DB_CONNECTION preview:"
+          echo "Host=localhost;Port=5432;Username=postgres;***;Database=postgres;Search Path=test_schema"
+      
+      - name: Run Tests
+        run: dotnet test
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_NAME: postgres
+          DB_USER: postgres
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          TEST_DB_CONNECTION: Host=localhost;Port=5432;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Database=postgres;Search Path=test_schema
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test  # <--- This makes sure "deploy" only runs if "build-and-test" succeeds
+
+    steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # Setup .NET environment
     - name: Setup .NET
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '8.0.408' # Adjust to your .NET version
+        dotnet-version: '8.0.408' 
 
-    # Publish the application
     - name: Publish application
       run: dotnet publish -c Release -o ./publish
 
-    # Debug SSH configuration
     - name: Debug SSH setup
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -35,14 +82,12 @@ jobs:
         ssh-keyscan -H 172.105.95.18 >> ~/.ssh/known_hosts
         ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "echo 'SSH connection successful'"
 
-    # Securely copy files to the server
     - name: Deploy to server
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
         scp -r ./publish/* root@172.105.95.18:/var/www/MyPostgresApi
 
-    # Restart the service
     - name: Restart MyPostgresApi service
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}

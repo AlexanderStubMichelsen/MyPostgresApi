@@ -107,8 +107,6 @@ namespace MyPostgresApi.Tests
             Assert.Equal(imagetwo.ImageUrl, images[1].ImageUrl);
             Assert.Equal(imagetwo.Photographer, images[1].Photographer);
             Assert.Equal(imagetwo.SourceLink, images[1].SourceLink);
-
-
         }
 
         [Fact]
@@ -152,7 +150,6 @@ namespace MyPostgresApi.Tests
             var userResponse = await _client.PostAsJsonAsync("/api/users", user);
             userResponse.EnsureSuccessStatusCode();
 
-            var userResult = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
             var email = user.Email;
             var password = user.Password;
 
