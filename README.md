@@ -39,6 +39,8 @@ for Grafana
 
 ____________________________________________________________________________________________
 
+The connection strings are on the server in appsettings.json/appsettings.Development.json
+
 SQL:
 
 CREATE TABLE IF NOT EXISTS maskinen.users (
