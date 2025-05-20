@@ -2,6 +2,10 @@
 .env
 .env.test
 
+## Settings
+appsettings.json
+appsettings.Development.json
+
 ## Build results
 [Dd]ebug/
 [Rr]elease/
