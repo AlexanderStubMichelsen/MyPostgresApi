@@ -32,7 +32,7 @@ execute
 
 Select graph for visual layout.
 
-And you can try:
+And as admin you can try:
 http://172.105.95.18:3000/ or http://172.105.95.18:3000/d/UDdpyzz7z/prometheus-2-0-stats?orgId=1&from=now-1h&to=now&timezone=browser&refresh=1m
 
 for Grafana
