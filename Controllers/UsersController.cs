@@ -163,6 +163,24 @@ public class UsersController : ControllerBase, IUsersController
         return Ok(new { message = "Password updated successfully!" });
     }
 
+    [HttpDelete("delete")]
+    [Authorize]
+    public async Task<IActionResult> DeleteUser([FromBody] DeleteUserRequest request)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        if (user == null)
+            return NotFound(new { message = "User not found" });
+
+        bool passwordMatch = BCrypt.Net.BCrypt.Verify(request.Password, user.Password);
+        if (!passwordMatch)
+            return Unauthorized(new { message = "Invalid credentials" });
+
+        _context.Users.Remove(user);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "User deleted successfully" });
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] User loginRequest)
     {

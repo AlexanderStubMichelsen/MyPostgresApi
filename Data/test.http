@@ -8,9 +8,9 @@ POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "Name": "ss6",
-    "email": "ss6@ss6.com",
-    "password": "ss6"
+    "Name": "k",
+    "email": "k@k.com",
+    "password": "k"
 }
 
 ###
@@ -60,3 +60,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6I
     "newPassword": "eq"
 }
 
+###
+
+// Now I want to test delete endpoint
+DELETE http://localhost:5019/api/users/delete
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI5NyIsInVuaXF1ZV9uYW1lIjoic3M1QHNzNS5jb20iLCJuYmYiOjE3NDk1MDUxMTQsImV4cCI6MTc0OTUwNjkxNCwiaWF0IjoxNzQ5NTA1MTE0fQ.ymS5M1KZGQyg1ErbYrhTQU0Zn4qGjANtSsuMJ6Na4zM
+
+{
+  "email": "k@k.dk",
+  "password": "k"
+}
