@@ -268,5 +268,39 @@ namespace MyPostgresApi.Tests
             Assert.NotNull(changePasswordResponse);
             Assert.Equal(HttpStatusCode.OK, changePasswordResponse.StatusCode);
         }
+
+        [Fact]
+        public async Task DeleteUser_ReturnsSuccess()
+        {
+            AddAuthorizationHeader();
+
+            var newUser = new
+            {
+                Name = "Unique Test User",
+                Email = "email@test.user",
+                Password = "TestPassword123"
+            };
+            var response = await _client.PostAsJsonAsync("/api/users", newUser);
+            response.EnsureSuccessStatusCode();
+
+            // Use HttpRequestMessage to send a body with DELETE
+            var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, "/api/users/delete")
+            {
+                Content = JsonContent.Create(new
+                {
+                    Email = "email@test.user",
+                    Password = "TestPassword123"
+                })
+            };
+
+            var deleteResponse = await _client.SendAsync(deleteRequest);
+            deleteResponse.EnsureSuccessStatusCode();
+
+            var deleteResponseJson = await deleteResponse.Content.ReadFromJsonAsync<JsonElement>();
+            var deleteMessage = deleteResponseJson.GetProperty("message").GetString();
+            Assert.Equal("User deleted successfully", deleteMessage);
+            Assert.NotNull(deleteResponse);
+            Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        }
     }
 }
