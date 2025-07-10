@@ -1,4 +1,4 @@
-# @baseUrl = devdisplay.online/api
+#baseUrl = devdisplay.online/api
 
 @baseUrl = http://localhost:5019/api
 
@@ -8,15 +8,15 @@ POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "Name": "k",
-    "email": "k@k.com",
-    "password": "k"
+    "Name": "o",
+    "email": "o@o.com",
+    "password": "o"
 }
 
 ###
 
 GET {{baseUrl}}/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6InNzQHNzLmNvbSIsIm5iZiI6MTc0MzU4NjU2NywiZXhwIjoxNzQzNTkwMTY3LCJpYXQiOjE3NDM1ODY1Njd9.60WoE4MRKkEsMz_yR5CKhR8-6cy-xCns_zLclWnkR-c
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI5NyIsInVuaXF1ZV9uYW1lIjoic3M1QHNzNS5jb20iLCJuYmYiOjE3NTIxMzE4NDYsImV4cCI6MTc1MjEzMzY0NiwiaWF0IjoxNzUyMTMxODQ2fQ.JqLLbvaiffniM2ETHd8PxKOBadoismsGsdt5Rxu0GBM
 
 ###
 
@@ -71,3 +71,20 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI5NyIsI
   "email": "k@k.dk",
   "password": "k"
 }
+
+###
+
+// I want to create a post
+POST {{baseUrl}}/boardposts
+Content-Type: application/json
+
+{
+    "name": "Test Post",
+    "message": "This is a test message."
+}
+
+###
+
+GET {{baseUrl}}/boardposts
+Content-Type: application/json
+

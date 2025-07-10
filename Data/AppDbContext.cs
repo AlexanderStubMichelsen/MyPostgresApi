@@ -14,15 +14,28 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<SavedImage> SavedImages { get; set; } // ✅ Add SavedImages table
 
+    public DbSet<BoardPost> BoardPosts { get; set; } // ✅ Add BoardPosts table
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // ✅ Use configured schema
         modelBuilder.HasDefaultSchema(_schema);
 
+        // Configure BoardPost entity with schema
+        modelBuilder.Entity<BoardPost>(entity =>
+        {
+            entity.ToTable("board_posts", "maskinen"); // Specify schema
+            entity.Property(e => e.CreatedAt)
+                  .HasConversion(
+                      v => DateTime.SpecifyKind(v, DateTimeKind.Utc),
+                      v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                  );
+        });
+
         // ✅ Users table
         modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("users");
+            entity.ToTable("users", "maskinen");
             entity.HasKey(u => u.Id);
             entity.Property(u => u.Name).IsRequired().HasMaxLength(100);
             entity.Property(u => u.Email).IsRequired().HasMaxLength(100);
@@ -33,7 +46,7 @@ public class AppDbContext : DbContext
         // ✅ SavedImages table
         modelBuilder.Entity<SavedImage>(entity =>
         {
-            entity.ToTable("saved_images");
+            entity.ToTable("saved_images", "maskinen"); // Also specify schema here
             entity.HasKey(i => i.Id);
             entity.Property(i => i.Id).HasColumnName("id");
             entity.Property(i => i.UserId).HasColumnName("user_id");
