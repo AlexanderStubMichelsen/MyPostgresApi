@@ -70,7 +70,7 @@ builder.Services.AddHealthChecks()
 builder.Services.AddHealthChecksUI(options =>
 {
     options.SetEvaluationTimeInSeconds(15);
-    options.AddHealthCheckEndpoint("API Health", "/health");
+    options.AddHealthCheckEndpoint("API Health", "http://localhost:5019/health");
 }).AddInMemoryStorage();
 
 // 🌍 CORS
