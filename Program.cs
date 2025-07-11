@@ -131,6 +131,57 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// 🗄️ Ensure specific tables are created
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        // Get the schema name from configuration and validate it (only allow letters, numbers, and underscores)
+        var schema = scope.ServiceProvider.GetRequiredService<IConfiguration>()["DB_SCHEMA"] ?? "maskinen";
+        if (string.IsNullOrWhiteSpace(schema) || !System.Text.RegularExpressions.Regex.IsMatch(schema, @"^[a-zA-Z0-9_]+$"))
+        {
+            throw new InvalidOperationException("Invalid schema name.");
+        }
+
+        // Create only the tables we need (schema is validated above)
+        dbContext.Database.ExecuteSqlRaw($@"
+            CREATE TABLE IF NOT EXISTS ""{schema}"".""users"" (
+                id SERIAL PRIMARY KEY,
+                name TEXT,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            );
+            
+            CREATE TABLE IF NOT EXISTS ""{schema}"".""saved_images"" (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                image_url TEXT NOT NULL,
+                title TEXT,
+                photographer TEXT,
+                source_link TEXT,
+                saved_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+                CONSTRAINT fk_user FOREIGN KEY (user_id)
+                    REFERENCES ""{schema}"".""users"" (id)
+                    ON DELETE CASCADE
+            );
+            
+            CREATE TABLE IF NOT EXISTS ""{schema}"".""board_posts"" (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255),
+                message TEXT,
+                created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+            );
+        ");
+        
+        Console.WriteLine("✅ Required tables ensured");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ Table creation failed: {ex.Message}");
+    }
+}
+
 app.UseDeveloperExceptionPage();
 app.UseSwagger();
 app.UseSwaggerUI();
