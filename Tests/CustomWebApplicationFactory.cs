@@ -18,6 +18,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 ["DB_SCHEMA"] = "test_schema"
             });
 
+            configBuilder.AddJsonFile("appsettings.Test.json", optional: true);
             configBuilder.AddEnvironmentVariables();
         });
 
@@ -45,31 +46,42 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             try
             {
-                // Log actual DB connection
-                Console.WriteLine($"🔌 DB Connection: {db.Database.GetDbConnection().ConnectionString}");
+                var verbose = Environment.GetEnvironmentVariable("VERBOSE_TEST_LOGS") == "true";
+
+                if (verbose)
+                    Console.WriteLine($"🔌 DB Connection: {db.Database.GetDbConnection().ConnectionString}");
 
                 // Force EF to create schema and tables from model
                 db.Database.EnsureCreated();
-                // Log tables registered by EF Core
-                var tables = db.Model.GetEntityTypes().Select(e => e.GetTableName()).Distinct();
-                Console.WriteLine("📦 Tables registered with EF:");
-                foreach (var t in tables)
-                    Console.WriteLine($" - {t}");
 
-                // Test table existence manually
-                try
+                if (verbose)
                 {
-                    db.Database.ExecuteSqlRaw("SELECT 1 FROM test_schema.saved_images LIMIT 1;");
-                    Console.WriteLine("🧪 Table test_schema.saved_images exists ✅");
+                    var tables = db.Model.GetEntityTypes().Select(e => e.GetTableName()).Distinct();
+                    Console.WriteLine("📦 Tables registered with EF:");
+                    foreach (var t in tables)
+                        Console.WriteLine($" - {t}");
                 }
-                catch (Exception ex)
+
+                // Validate required tables
+                string[] expectedTables = { "users", "saved_images", "board_posts" };
+                foreach (var table in expectedTables)
                 {
-                    Console.WriteLine($"❌ Table access failed: {ex.Message}");
+                    try
+                    {
+                        db.Database.ExecuteSqlRaw($"SELECT 1 FROM test_schema.{table} LIMIT 1;");
+                        if (verbose)
+                            Console.WriteLine($"✅ Table test_schema.{table} exists");
+                    }
+                    catch
+                    {
+                        Console.WriteLine($"❌ Missing: test_schema.{table}");
+                    }
                 }
 
                 // Truncate test tables
                 db.Database.ExecuteSqlRaw("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
                 db.Database.ExecuteSqlRaw("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
+                db.Database.ExecuteSqlRaw("TRUNCATE TABLE test_schema.board_posts RESTART IDENTITY CASCADE");
             }
             catch (Exception ex)
             {
