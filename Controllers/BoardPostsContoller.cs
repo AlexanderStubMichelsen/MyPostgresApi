@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using MyPostgresApi.Models;
+using MyPostgresApi.DTOs;
 
 namespace MyPostgresApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class BoardPostsController : ControllerBase, IBoardPostController
+    public class BoardPostsController : ControllerBase
     {
         private readonly AppDbContext _context;
 
@@ -15,137 +18,111 @@ namespace MyPostgresApi.Controllers
             _context = context;
         }
 
+        // 🔓 Get all posts (anonymous access)
+        [AllowAnonymous]
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetBoardPosts()
+        public async Task<IActionResult> GetAll()
         {
-            var posts = await _context.BoardPosts.ToListAsync();
-            return Ok(posts.Cast<object>());
+            var posts = await _context.BoardPosts
+                .Include(p => p.User)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            return Ok(posts.Select(p => p.ToDto()));
         }
 
-        // Get a specific board post by ID
+        // 🔓 Get a specific post by ID
+        [AllowAnonymous]
         [HttpGet("{id}")]
-        public async Task<ActionResult<BoardPost>> GetBoardPost(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var post = await _context.BoardPosts.FindAsync(id);
-            
-            if (post == null)
-            {
-                return NotFound();
-            }
+            var post = await _context.BoardPosts
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.Id == id);
 
-            return Ok(post);
+            if (post == null)
+                return NotFound();
+
+            return Ok(post.ToDto());
         }
 
+        // 🔐 Create a post (requires login)
+        [Authorize]
         [HttpPost]
-        public async Task<ActionResult<object>> PostBoardPost(BoardPost boardPost)
+        public async Task<IActionResult> Create([FromBody] BoardPostDto dto)
         {
-            if (!ModelState.IsValid)
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var post = new BoardPost
             {
-                return BadRequest(ModelState);
-            }
+                Name = dto.Name,
+                Message = dto.Message,
+                CreatedAt = DateTime.UtcNow,
+                UserId = userId
+            };
 
-            // Set creation timestamp to pure UTC
-            boardPost.CreatedAt = DateTime.UtcNow;
-
-            _context.BoardPosts.Add(boardPost);
+            _context.BoardPosts.Add(post);
             await _context.SaveChangesAsync();
-            
-            return CreatedAtAction(nameof(GetBoardPost), new { id = boardPost.Id }, boardPost);
+
+            // Fetch user for DTO after save
+            post.User = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            return CreatedAtAction(nameof(GetById), new { id = post.Id }, post.ToDto());
         }
 
-        // Add route parameter for PUT
+        // 🔐 Get current user's posts
+        [Authorize]
+        [HttpGet("mine")]
+        public async Task<IActionResult> GetMine()
+        {
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var posts = await _context.BoardPosts
+                .Include(p => p.User)
+                .Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            return Ok(posts.Select(p => p.ToDto()));
+        }
+
+        // 🔐 Update a post (user must own it)
+        [Authorize]
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBoardPost(int id, BoardPost boardPost)
+        public async Task<IActionResult> Update(int id, [FromBody] BoardPostDto dto)
         {
-            if (id != boardPost.Id)
-            {
-                return BadRequest("ID mismatch");
-            }
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            var post = await _context.BoardPosts.Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
 
-            // Check if the post exists
-            var existingPost = await _context.BoardPosts.FindAsync(id);
-            if (existingPost == null)
-            {
-                return NotFound();
-            }
+            if (post == null)
+                return NotFound("Post not found or not owned by user.");
 
-            // Update properties
-            existingPost.Name = boardPost.Name;
-            existingPost.Message = boardPost.Message;
+            post.Name = dto.Name;
+            post.Message = dto.Message;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await BoardPostExistsAsync(id))
-                {
-                    return NotFound();
-                }
-                throw;
-            }
-
-            return NoContent();
+            await _context.SaveChangesAsync();
+            return Ok(post.ToDto());
         }
 
-        // Add DELETE method
+        // 🔐 Delete a post (user must own it)
+        [Authorize]
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBoardPost(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var post = await _context.BoardPosts.FindAsync(id);
+            int userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var post = await _context.BoardPosts
+                .FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
+
             if (post == null)
-            {
-                return NotFound();
-            }
+                return NotFound("Post not found or not owned by user.");
 
             _context.BoardPosts.Remove(post);
             await _context.SaveChangesAsync();
 
-            return NoContent();
-        }
-
-        private async Task<bool> BoardPostExistsAsync(int id)
-        {
-            return await _context.BoardPosts.AnyAsync(e => e.Id == id);
-        }
-
-        // Implementation of IBoardPostController.UpdateCurrentBoardPost
-        public async Task<IActionResult> UpdateCurrentBoardPost(BoardPost boardPost)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var existingPost = await _context.BoardPosts.FindAsync(boardPost.Id);
-            if (existingPost == null)
-            {
-                return NotFound();
-            }
-
-            existingPost.Name = boardPost.Name;
-            existingPost.Message = boardPost.Message;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await BoardPostExistsAsync(boardPost.Id))
-                {
-                    return NotFound();
-                }
-                throw;
-            }
-
-            return NoContent();
+            return Ok(new { message = "Post deleted successfully!" });
         }
     }
 }

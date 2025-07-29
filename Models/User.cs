@@ -1,6 +1,5 @@
-// ✅ User model
 using System.ComponentModel.DataAnnotations.Schema;
-using MyPostgresApi.DTOs; // Import the UserDto namespace
+using MyPostgresApi.DTOs;
 
 namespace MyPostgresApi.Models;
 
@@ -23,16 +22,9 @@ public class User
         get => _password;
         set => _password = value;
     }
-    
-    // public enum UserRole
-    // {
-    //     Admin,
-    //     User,
-    //     Guest
-    // }
 
-    // [Column("role")]
-    // public UserRole Role { get; set; } = UserRole.User; // Default role is 'User'
+    // Navigation property for related BoardPosts
+    public List<BoardPost> BoardPosts { get; set; } = new();
 
     // Mapping method to convert User to UserDto
     public UserDto ToDto()

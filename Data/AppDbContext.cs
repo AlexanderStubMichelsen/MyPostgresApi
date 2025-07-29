@@ -17,13 +17,16 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ✅ Use configured schema
+        // ✅ Use custom schema for all tables
         modelBuilder.HasDefaultSchema(_schema);
 
-        // ✅ Configure BoardPost entity properly
+        // ✅ Ensure EF migration history also uses this schema
+        modelBuilder.HasAnnotation("Relational:HistoryTableSchema", _schema);
+
+        // ✅ Configure BoardPost entity
         modelBuilder.Entity<BoardPost>(entity =>
         {
-            entity.ToTable("board_posts"); // Will use default schema
+            entity.ToTable("board_posts");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Name).HasColumnName("name").HasMaxLength(255);
@@ -34,12 +37,18 @@ public class AppDbContext : DbContext
                       v => DateTime.SpecifyKind(v, DateTimeKind.Utc),
                       v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
                   );
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.BoardPosts)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ✅ Users table
+        // ✅ Configure User entity
         modelBuilder.Entity<User>(entity =>
         {
-            entity.ToTable("users"); // Use default schema, not hardcoded "maskinen"
+            entity.ToTable("users");
             entity.HasKey(u => u.Id);
             entity.Property(u => u.Id).HasColumnName("id");
             entity.Property(u => u.Name).HasColumnName("name").IsRequired().HasMaxLength(100);
@@ -48,10 +57,10 @@ public class AppDbContext : DbContext
             entity.Property(u => u.Password).HasColumnName("password").IsRequired();
         });
 
-        // ✅ SavedImages table
+        // ✅ Configure SavedImage entity
         modelBuilder.Entity<SavedImage>(entity =>
         {
-            entity.ToTable("saved_images"); // Use default schema, not hardcoded "maskinen"
+            entity.ToTable("saved_images");
             entity.HasKey(i => i.Id);
             entity.Property(i => i.Id).HasColumnName("id");
             entity.Property(i => i.UserId).HasColumnName("user_id");

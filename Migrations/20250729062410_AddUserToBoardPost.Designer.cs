@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,15 +11,16 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyPostgresApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250729062410_AddUserToBoardPost")]
+    partial class AddUserToBoardPost
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("maskinen")
                 .HasAnnotation("ProductVersion", "8.0.11")
-                .HasAnnotation("Relational:HistoryTableSchema", "maskinen")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -132,6 +134,17 @@ namespace MyPostgresApi.Migrations
                         .IsUnique();
 
                     b.ToTable("users", "maskinen");
+                });
+
+            modelBuilder.Entity("MyPostgresApi.Models.BoardPost", b =>
+                {
+                    b.HasOne("MyPostgresApi.Models.User", "User")
+                        .WithMany("BoardPosts")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("MyPostgresApi.Models.SavedImage", b =>
