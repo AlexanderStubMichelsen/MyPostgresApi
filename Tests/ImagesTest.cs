@@ -60,6 +60,14 @@ namespace MyPostgresApi.Tests
         private void AddAuthHeader() =>
             _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 
+        private async Task<int> GetUsersWithImagesCountAsync()
+        {
+            return await _dbContext.SavedImages
+                .Select(img => img.UserId)
+                .Distinct()
+                .CountAsync();
+        }
+
         public class LoginResponse { public string? Token { get; set; } }
 
         [Fact]
@@ -107,6 +115,8 @@ namespace MyPostgresApi.Tests
             Assert.Equal(imagetwo.ImageUrl, images[1].ImageUrl);
             Assert.Equal(imagetwo.Photographer, images[1].Photographer);
             Assert.Equal(imagetwo.SourceLink, images[1].SourceLink);
+
+
         }
 
         [Fact]
@@ -150,6 +160,7 @@ namespace MyPostgresApi.Tests
             var userResponse = await _client.PostAsJsonAsync("/api/users", user);
             userResponse.EnsureSuccessStatusCode();
 
+            var userResult = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
             var email = user.Email;
             var password = user.Password;
 
@@ -221,6 +232,48 @@ namespace MyPostgresApi.Tests
 
             // Assert that there is no remaining images
             Assert.Empty(remainingSecond!);
+        }
+
+        [Fact]
+        public async Task GetUsersCountForSpecificImage()
+        {
+            AddAuthHeader();
+
+            // Create second user
+            var user2 = new
+            {
+                Name = "Image Tester2",
+                Email = "image2@example.com",
+                Password = "Test12342"
+            };
+
+            var userResponse = await _client.PostAsJsonAsync("/api/users", user2);
+            userResponse.EnsureSuccessStatusCode();
+
+            // First user saves an image
+            var sharedImage = new
+            {
+                ImageUrl = "https://example.com/shared-image.jpg",
+                Title = "Shared Image",
+                Photographer = "John Doe",
+                SourceLink = "https://source.com"
+            };
+
+            await _client.PostAsJsonAsync("/api/images/save", sharedImage);
+
+            // Second user logs in and saves the same image
+            var token2 = await GetJwtTokenAsync(user2.Email, user2.Password);
+            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token2);
+
+            await _client.PostAsJsonAsync("/api/images/save", sharedImage);
+
+            // Test the endpoint to count users for this specific image
+            var encodedUrl = Uri.EscapeDataString(sharedImage.ImageUrl);
+            var countResponse = await _client.GetAsync($"/api/images/image-user-count/{encodedUrl}");
+            countResponse.EnsureSuccessStatusCode();
+
+            var userCount = await countResponse.Content.ReadFromJsonAsync<int>();
+            Assert.Equal(2, userCount);
         }
     }
 }

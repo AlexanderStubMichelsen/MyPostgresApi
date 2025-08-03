@@ -91,5 +91,20 @@ namespace MyPostgresApi.Controllers
                 return Ok(new { message = "Image deleted successfully!" });
             }
 
+        [Authorize]
+        [HttpGet("users-with-images-count")]
+        public async Task<ActionResult<int>> GetUsersWithImagesCount()        {            var count = await _context.SavedImages                .Select(i => i.UserId)                .Distinct()                .CountAsync();            return Ok(count);        }        [AllowAnonymous]        [HttpGet("image-user-count/{imageUrl}")]        public async Task<ActionResult<int>> GetUsersCountForImage(string imageUrl)
+        {
+            var decodedUrl = Uri.UnescapeDataString(imageUrl);
+            
+            var count = await _context.SavedImages
+                .Where(i => i.ImageUrl == decodedUrl)
+                .Select(i => i.UserId)
+                .Distinct()
+                .CountAsync();
+
+            return Ok(count);
+        }
+
         }
     }
