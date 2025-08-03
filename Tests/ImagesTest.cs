@@ -267,9 +267,12 @@ namespace MyPostgresApi.Tests
 
             await _client.PostAsJsonAsync("/api/images/save", sharedImage);
 
+            // Reset to first user's token for the GET request
+            AddAuthHeader();
+
             // Test the endpoint to count users for this specific image
-            var encodedUrl = Uri.EscapeDataString(sharedImage.ImageUrl);
-            var countResponse = await _client.GetAsync($"/api/images/image-user-count/{encodedUrl}");
+            var request = new { ImageUrl = sharedImage.ImageUrl };
+            var countResponse = await _client.PostAsJsonAsync("/api/images/image-user-count", request);
             countResponse.EnsureSuccessStatusCode();
 
             var userCount = await countResponse.Content.ReadFromJsonAsync<int>();

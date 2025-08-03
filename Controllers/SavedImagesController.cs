@@ -93,7 +93,7 @@ namespace MyPostgresApi.Controllers
 
         [Authorize]
         [HttpPost("image-user-count")]
-        public async Task<ActionResult<int>> GetUsersCountForImagePost([FromBody] ImageUrlRequest request)
+        public async Task<ActionResult<int>> GetUsersCountForImage([FromBody] ImageUrlRequest request)
         {
             var count = await _context.SavedImages
                 .Where(i => i.ImageUrl == request.ImageUrl)
@@ -104,10 +104,9 @@ namespace MyPostgresApi.Controllers
             return Ok(count);
         }
 
-        // Add this class if you don't have it
         public class ImageUrlRequest
         {
-            public string ImageUrl { get; set; }
+            public string ImageUrl { get; set; } = string.Empty;
         }
     }
 }
