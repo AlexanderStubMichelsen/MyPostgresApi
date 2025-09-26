@@ -3,13 +3,7 @@ using MyPostgresApi.Models;
 
 public class AppDbContext : DbContext
 {
-    private readonly string _schema;
-
-    public AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration config) : base(options)
-    {
-        _schema = config["DB_SCHEMA"] ?? "maskinen";
-        Console.WriteLine($"🏗 Using schema: {_schema}");
-    }
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) {}
 
     public DbSet<User> Users { get; set; }
     public DbSet<SavedImage> SavedImages { get; set; }
@@ -17,13 +11,6 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ✅ Use custom schema for all tables
-        modelBuilder.HasDefaultSchema(_schema);
-
-        // ✅ Ensure EF migration history also uses this schema
-        modelBuilder.HasAnnotation("Relational:HistoryTableSchema", _schema);
-
-        // ✅ Configure BoardPost entity
         modelBuilder.Entity<BoardPost>(entity =>
         {
             entity.ToTable("board_posts");
@@ -45,7 +32,6 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ✅ Configure User entity
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("users");
@@ -57,7 +43,6 @@ public class AppDbContext : DbContext
             entity.Property(u => u.Password).HasColumnName("password").IsRequired();
         });
 
-        // ✅ Configure SavedImage entity
         modelBuilder.Entity<SavedImage>(entity =>
         {
             entity.ToTable("saved_images");
