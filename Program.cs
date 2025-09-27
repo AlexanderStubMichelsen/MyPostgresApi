@@ -18,10 +18,13 @@ var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
 
 // 🔧 Configure Kestrel for HTTP only — Apache handles HTTPS
+// 🔧 Configure Kestrel for Azure App Service (Linux expects port 8080)
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(5019); // Kestrel runs on plain HTTP
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    options.ListenAnyIP(int.Parse(port));
 });
+
 
 // 🔧 Get SQLite path from env or default to local file
 var sqlitePath = Environment.GetEnvironmentVariable("SQLITE_PATH") ?? "app.db";
