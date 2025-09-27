@@ -1,23 +1,18 @@
--- Create board_posts table for production schema
-CREATE TABLE IF NOT EXISTS maskinen.board_posts (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255),
-    message TEXT,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    user_id INTEGER NOT NULL,
-    CONSTRAINT fk_board_post_user FOREIGN KEY (user_id)
-        REFERENCES maskinen.users (id)
-        ON DELETE CASCADE
+-- SQLite DDL for board_posts table when manual provisioning is required
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
 );
 
--- Create board_posts table for test schema
-CREATE TABLE IF NOT EXISTS test_schema.board_posts (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255),
+CREATE TABLE IF NOT EXISTS board_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
     message TEXT,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    created_at TEXT DEFAULT (datetime('now')),
     user_id INTEGER NOT NULL,
-    CONSTRAINT fk_board_post_user FOREIGN KEY (user_id)
-        REFERENCES test_schema.users (id)
-        ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
