@@ -57,10 +57,12 @@ jobs:
 
       - name: Deploy to Azure WebApp
         uses: azure/webapps-deploy@v3
+        
         with:
           app-name: DevDisplay-NET-Backend
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          slot-name: Production
           package: ./publish
+
 
           
 
