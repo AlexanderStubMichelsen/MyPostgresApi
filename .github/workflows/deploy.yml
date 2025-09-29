@@ -2,32 +2,17 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [Linode]
+    branches: [Azure]
   pull_request:
-    branches: [Linode]
+    branches: [Azure]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -39,57 +24,34 @@ jobs:
 
       - name: Build
         run: dotnet build --no-restore
-       
-      - name: Print TEST_DB_CONNECTION for sanity check
-        run: |
-          echo "🔍 TEST_DB_CONNECTION preview:"
-          echo "Host=localhost;Port=5432;Username=postgres;***;Database=postgres;Search Path=test_schema"
-      
+
       - name: Run Tests
-        run: dotnet test
-        env:
-          DB_HOST: 127.0.0.1
-          DB_PORT: 5432
-          DB_NAME: postgres
-          DB_USER: postgres
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          TEST_DB_CONNECTION: Host=localhost;Port=5432;Username=postgres;Password=${{ secrets.DB_PASSWORD }};Database=postgres;Search Path=test_schema
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: dotnet test --no-build
+
+      - name: Publish application
+        run: dotnet publish -c Release -o ./publish
+
+      - name: Upload published artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypostgresapi-publish
+          path: ./publish
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-test  # <--- This makes sure "deploy" only runs if "build-and-test" succeeds
+    needs: build-and-test
+    if: github.event_name == 'push'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: mypostgresapi-publish
+          path: ./publish
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '8.0.408' 
-
-    - name: Publish application
-      run: dotnet publish -c Release -o ./publish
-
-    - name: Debug SSH setup
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        mkdir -p ~/.ssh
-        echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H 172.105.95.18 >> ~/.ssh/known_hosts
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "echo 'SSH connection successful'"
-
-    - name: Deploy to server
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        scp -r ./publish/* root@172.105.95.18:/var/www/MyPostgresApi
-
-    - name: Restart MyPostgresApi service
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      run: |
-        ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no root@172.105.95.18 "sudo systemctl restart MyPostgresApi"
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish

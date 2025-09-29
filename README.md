@@ -110,6 +110,30 @@ dotnet test
 
 The application exposes health checks at `/health` and `/health-ui`.
 
+## GitHub Actions deployment pipeline
+
+The `.github/workflows/deploy.yml` workflow now runs on pushes and pull requests that
+target the `Azure` branch. It restores dependencies, builds the solution, runs the test
+suite against SQLite, publishes the application, and saves the published output as a
+pipeline artifact. On branch pushes, the deploy job downloads that artifact and deploys
+it to Azure App Service via the `azure/webapps-deploy@v3` action.
+
+### Required GitHub secrets
+
+Add the following repository secrets so the workflow can authenticate with Azure and
+target the correct Web App:
+
+| Secret | Description |
+| ------ | ----------- |
+| `AZURE_WEBAPP_NAME` | The name of the Azure Web App that hosts this API. |
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | The base64-encoded publish profile for the Web App. Download it from the Azure Portal (`Get publish profile`) and paste the entire XML into the secret. |
+| `AZURE_WEBAPP_SLOT` (optional) | Name of the deployment slot if you deploy somewhere other than Production. When set, also update the workflow input. |
+
+The publish profile includes the resource group, credentials, and FTP endpoints required
+for deployment, so no additional secrets are necessary. Ensure the App Service has the
+`JWT_SECRET_KEY` and `SQLITE_PATH` application settings configured as described above so
+the deployed application can start successfully.
+
 ## Observability endpoints
 
 * `GET /health` – machine-readable health check (includes SQLite health probe)
