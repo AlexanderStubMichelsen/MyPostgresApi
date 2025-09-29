@@ -24,8 +24,7 @@ namespace MyPostgresApi.Tests
 
         public async Task InitializeAsync()
         {
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
+            await ResetDatabaseAsync();
 
             var user = new
             {
@@ -42,9 +41,17 @@ namespace MyPostgresApi.Tests
 
         public async Task DisposeAsync()
         {
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.saved_images RESTART IDENTITY CASCADE");
-            await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
+            await ResetDatabaseAsync();
             _scope.Dispose();
+        }
+
+        private async Task ResetDatabaseAsync()
+        {
+            await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM board_posts;");
+            await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM saved_images;");
+            await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM users;");
+            await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name IN ('board_posts','saved_images','users');");
+            _dbContext.ChangeTracker.Clear();
         }
 
         private async Task<string> GetJwtTokenAsync(string email, string password)
