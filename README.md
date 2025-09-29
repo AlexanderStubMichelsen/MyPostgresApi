@@ -108,14 +108,15 @@ dotnet test
 5. Upload an existing `app.db` (if you migrated data) by using `az webapp ssh` or the
    Kudu console. Place the database at `/home/site/wwwroot/app.db`.
 
-The application exposes health checks at `/health` and `/health-ui`, and Prometheus
-metrics if you keep the existing monitoring setup.
+The application exposes health checks at `/health` and `/health-ui`.
 
 ## Observability endpoints
 
 * `GET /health` – machine-readable health check (includes SQLite health probe)
 * `GET /health-ui` – HealthChecks.UI dashboard (disabled in test environment)
-* `GET /metrics` – Prometheus/App.Metrics endpoint (requires authentication in production)
+
+Azure App Service surfaces platform metrics through Azure Monitor, so no additional
+Prometheus endpoint is exposed by this API.
 
 ## Resources
 
