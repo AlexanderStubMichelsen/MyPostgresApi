@@ -26,8 +26,7 @@ public class BoardPostsTest : IClassFixture<CustomWebApplicationFactory>, IAsync
 
     public async Task InitializeAsync()
     {
-        await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.board_posts RESTART IDENTITY CASCADE");
-        await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
+        await ResetDatabaseAsync();
 
         var user = new User
         {
@@ -56,9 +55,17 @@ public class BoardPostsTest : IClassFixture<CustomWebApplicationFactory>, IAsync
 
     public async Task DisposeAsync()
     {
-        await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.board_posts RESTART IDENTITY CASCADE");
-        await _dbContext.Database.ExecuteSqlRawAsync("TRUNCATE TABLE test_schema.users RESTART IDENTITY CASCADE");
+        await ResetDatabaseAsync();
         _scope.Dispose();
+    }
+
+    private async Task ResetDatabaseAsync()
+    {
+        await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM board_posts;");
+        await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM saved_images;");
+        await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM users;");
+        await _dbContext.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name IN ('board_posts','saved_images','users');");
+        _dbContext.ChangeTracker.Clear();
     }
 
     [Fact]
