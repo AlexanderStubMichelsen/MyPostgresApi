@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [Linode2]
+    branches: [PostgreSQL]
   pull_request:
-    branches: [Linode2]
+    branches: [PostgreSQL]
 
 jobs:
   build-and-test:
