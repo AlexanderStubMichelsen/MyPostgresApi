@@ -5,9 +5,15 @@ using DotNetEnv;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 🌱 Load environment variables for local development only
+var isTesting = builder.Environment.EnvironmentName == "Testing";
+if (!builder.Environment.IsProduction())
+{
+    _ = isTesting ? Env.Load(".env.test") : Env.Load();
+}
 
 // Configure SQLite database path based on environment
 string connectionString;
@@ -22,33 +28,42 @@ if (builder.Environment.IsProduction())
     
     connectionString = $"Data Source={dbPath}";
 }
+else if (builder.Environment.EnvironmentName == "Testing")
+{
+    // Use test-specific SQLite database
+    connectionString = Environment.GetEnvironmentVariable("TEST_DATABASE_URL") 
+                      ?? "Data Source=:memory:";
+}
 else
 {
-    // Use local path for development
+    // Use local SQLite for development
     connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
                       ?? "Data Source=app.db";
 }
 
-// 🌱 Load environment variables
-var isTesting = builder.Environment.EnvironmentName == "Testing";
-_ = isTesting ? Env.Load(".env.test") : Env.Load();
-
-// 🔐 Load secrets from environment
+// 🔐 Load JWT secret from environment (works for both local .env and Azure App Service settings)
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
-    ?? throw new InvalidOperationException("JWT_SECRET_KEY is missing.");
+    ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable is missing.");
 
-// 🔧 Configure Kestrel for HTTP only — Apache handles HTTPS
-// 🔧 Configure Kestrel for Azure App Service (Linux expects port 8080)
+// 🔧 Configure Kestrel for Azure App Service
 builder.WebHost.ConfigureKestrel(options =>
 {
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    var port = Environment.GetEnvironmentVariable("PORT") 
+              ?? Environment.GetEnvironmentVariable("WEBSITES_PORT") 
+              ?? "8080";
     options.ListenAnyIP(int.Parse(port));
 });
 
-
-// 🧠 Database context
+// 🧠 Database context - Force SQLite usage
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    options.UseSqlite(connectionString);
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+});
 
 // ❤️ Health Checks
 builder.Services.AddHealthChecks()
@@ -106,7 +121,7 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
-// 🧭 Swagger & Controllers
+// 🧭 Controllers and API
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -114,9 +129,12 @@ builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
 // 🧪 Dev tools
-app.UseDeveloperExceptionPage();
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors("AllowReactApp");
 app.UseStaticFiles();
@@ -138,12 +156,28 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
 });
 
+// Database initialization
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate(); // or EnsureCreated() if you're not using EF Migrations
+    try
+    {
+        if (app.Environment.IsProduction())
+        {
+            await db.Database.MigrateAsync();
+        }
+        else
+        {
+            await db.Database.EnsureCreatedAsync();
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred creating the database.");
+        throw;
+    }
 }
-
 
 app.Run();
 

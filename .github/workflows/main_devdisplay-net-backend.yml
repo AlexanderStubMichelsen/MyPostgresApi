@@ -53,12 +53,15 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Configure App Service for SQLite
+      - name: Configure Azure App Service Settings
         run: |
           az webapp config appsettings set \
             --resource-group ${{ secrets.AZURE_RG }} \
             --name DevDisplay-NET-Backend \
-            --settings ASPNETCORE_ENVIRONMENT=Production
+            --settings \
+              ASPNETCORE_ENVIRONMENT=Production \
+              JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+              WEBSITES_PORT=8080
 
       - name: Deploy to Azure WebApp
         uses: azure/webapps-deploy@v3
