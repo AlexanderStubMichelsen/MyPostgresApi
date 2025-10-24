@@ -1,45 +1,55 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
+using System;
 using System.IO;
 using System.Linq;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Xunit;
 
-public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+namespace MyPostgresApi.Tests
 {
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
-        builder.UseEnvironment("Testing");
+        private string _testDbPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.db");
 
-        var projectDir = Directory.GetCurrentDirectory();
-        builder.UseContentRoot(projectDir);
-
-        builder.ConfigureServices(services =>
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-            if (descriptor != null)
+            builder.ConfigureServices(services =>
             {
-                services.Remove(descriptor);
-            }
+                // Remove the existing DbContext registration
+                var descriptor = services.SingleOrDefault(
+                    d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
+                if (descriptor != null)
+                    services.Remove(descriptor);
 
-            var testDbPath = Path.Combine(Path.GetTempPath(), "mypostgresapi-tests.db");
-            Environment.SetEnvironmentVariable("SQLITE_PATH", testDbPath);
+                // Add test database
+                services.AddDbContext<AppDbContext>(options =>
+                    options.UseSqlite($"Data Source={_testDbPath}"));
 
-            var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
-            if (string.IsNullOrWhiteSpace(jwtSecret))
+                // Set test environment variables
+                Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "test-jwt-secret-key-for-testing-purposes-only");
+                Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+            });
+
+            builder.UseEnvironment("Testing");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "insecure-test-secret-change-me");
+                // Clean up test database
+                if (File.Exists(_testDbPath))
+                {
+                    File.Delete(_testDbPath);
+                }
             }
-
-            services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite($"Data Source={testDbPath}"));
-
-            var sp = services.BuildServiceProvider();
-
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-            db.Database.EnsureDeleted();
-            db.Database.EnsureCreated();
-        });
+            base.Dispose(disposing);
+        }
     }
+
+    [CollectionDefinition("NonParallelCollection", DisableParallelization = true)]
+    public class NonParallelCollectionDefinition { }
 }

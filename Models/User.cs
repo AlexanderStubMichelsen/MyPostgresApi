@@ -23,9 +23,6 @@ public class User
         set => _password = value;
     }
 
-    // Navigation property for related BoardPosts
-    public List<BoardPost> BoardPosts { get; set; } = new();
-
     // Mapping method to convert User to UserDto
     public UserDto ToDto()
     {

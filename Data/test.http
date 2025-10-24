@@ -74,53 +74,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI5NyIsI
 
 ###
 
-// I want to create a post
-POST {{baseUrl}}/boardposts
-Content-Type: application/json
-
-{
-    "name": "Test Post",
-    "message": "This is a test message."
-}
-
-###
-
-POST {{baseUrl}}/boardposts
-Content-Type: application/json
-
-{
-    "name": "Another Test Post",
-    "message": "This is another test message."
-}
-
-###
-
-GET {{baseUrl}}/boardposts
-Content-Type: application/json
-
-### 
-
-GET {{baseUrl}}/boardposts/10
-Content-Type: application/json
-
-###
-
-PUT http://localhost:5019/api/boardposts/10
-Content-Type: application/json
-
-{
-  "id": 10,
-  "name": "Updated Post",
-  "message": "Updated mesjøjøsage goes here."
-}
-
-###
-
-DELETE http://localhost:5019/api/boardposts/10
-Content-Type: application/json
-
-###
-
 POST {{baseUrl}}/images/image-user-count
 Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI5NyIsInVuaXF1ZV9uYW1lIjoic3M1QHNzNS5jb20iLCJuYmYiOjE3NTIxMzE4NDYsImV4cCI6MTc1MjEzMzY0NiwiaWF0IjoxNzUyMTMxODQ2fQ.JqLLbvaiffniM2ETHd8PxKOBadoismsGsdt5Rxu0GBM

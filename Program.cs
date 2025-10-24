@@ -3,11 +3,31 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using DotNetEnv;
 using System.Text;
-using System.Web;
 using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure SQLite database path based on environment
+string connectionString;
+if (builder.Environment.IsProduction())
+{
+    // Use Azure App Service local storage for SQLite
+    var dataPath = Environment.GetEnvironmentVariable("HOME") ?? "/tmp";
+    var dbPath = Path.Combine(dataPath, "data", "app.db");
+    
+    // Ensure directory exists
+    Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+    
+    connectionString = $"Data Source={dbPath}";
+}
+else
+{
+    // Use local path for development
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+                      ?? "Data Source=app.db";
+}
 
 // 🌱 Load environment variables
 var isTesting = builder.Environment.EnvironmentName == "Testing";
@@ -26,26 +46,13 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 
-// 🔧 Get SQLite path from env or default to local file
-var sqlitePath = Environment.GetEnvironmentVariable("SQLITE_PATH") ?? "app.db";
-
 // 🧠 Database context
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite($"Data Source={sqlitePath}"));
+    options.UseSqlite(connectionString));
 
 // ❤️ Health Checks
 builder.Services.AddHealthChecks()
-    .AddSqlite($"Data Source={sqlitePath}", name: "sqlite", failureStatus: HealthStatus.Degraded);
-
-// 🧪 Health Checks UI
-if (!builder.Environment.IsEnvironment("Testing"))
-{
-    builder.Services.AddHealthChecksUI(options =>
-    {
-        options.SetEvaluationTimeInSeconds(15);
-        options.AddHealthCheckEndpoint("API Health", "/health");
-    }).AddInMemoryStorage();
-}
+    .AddSqlite(connectionString, name: "sqlite", failureStatus: HealthStatus.Degraded);
 
 // 🌍 CORS
 builder.Services.AddCors(options =>
@@ -129,12 +136,6 @@ app.MapControllers();
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
-});
-
-app.MapHealthChecksUI(options =>
-{
-    options.UIPath = "/health-ui";
-    options.ApiPath = "/health-ui-api";
 });
 
 using (var scope = app.Services.CreateScope())
