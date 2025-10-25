@@ -15,6 +15,11 @@ if (!builder.Environment.IsProduction())
     _ = isTesting ? Env.Load(".env.test") : Env.Load();
 }
 
+// 🔍 Debug: Check what environment variables are set
+Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
+Console.WriteLine($"DATABASE_URL env var: {Environment.GetEnvironmentVariable("DATABASE_URL") ?? "Not set"}");
+Console.WriteLine($"DefaultConnection from config: {builder.Configuration.GetConnectionString("DefaultConnection") ?? "Not set"}");
+
 // Configure SQLite database path based on environment
 string connectionString;
 if (builder.Environment.IsProduction())
@@ -36,12 +41,26 @@ else if (builder.Environment.EnvironmentName == "Testing")
 }
 else
 {
-    // Use local SQLite for development
-    connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-                      ?? "Data Source=app.db";
+    // Use local SQLite for development - FORCE SQLite format
+    connectionString = "Data Source=app.db";
+    
+    // Override any PostgreSQL connection strings that might be loaded
+    var configConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrEmpty(configConnection) && !configConnection.StartsWith("Data Source="))
+    {
+        Console.WriteLine($"Warning: Ignoring non-SQLite connection string: {configConnection}");
+        connectionString = "Data Source=app.db";
+    }
+    else if (!string.IsNullOrEmpty(configConnection))
+    {
+        connectionString = configConnection;
+    }
 }
 
-// 🔐 Load JWT secret from environment (works for both local .env and Azure App Service settings)
+// 🔍 Debug: Show final connection string
+Console.WriteLine($"Final connection string: {connectionString}");
+
+// 🔐 Load JWT secret from environment
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable is missing.");
 
@@ -162,6 +181,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
+        Console.WriteLine("Attempting database initialization...");
         if (app.Environment.IsProduction())
         {
             await db.Database.MigrateAsync();
@@ -170,11 +190,13 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.EnsureCreatedAsync();
         }
+        Console.WriteLine("Database initialization successful!");
     }
     catch (Exception ex)
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred creating the database.");
+        Console.WriteLine($"Database error: {ex.Message}");
         throw;
     }
 }
