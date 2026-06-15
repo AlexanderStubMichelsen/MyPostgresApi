@@ -95,8 +95,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:5173",
-            "https://machinemal.eu/",
-            "https://www.machinemal.eu/",
+            "https://machinemal.eu",
+            "https://www.machinemal.eu",
             "https://witty-sand-0aef9a403.2.azurestaticapps.net"
         )
         .AllowAnyHeader()
@@ -155,9 +155,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowReactApp");
 app.UseStaticFiles();
 app.UseRouting();
+app.UseCors("AllowReactApp");
 
 if (!app.Environment.IsEnvironment("Testing"))
 {
