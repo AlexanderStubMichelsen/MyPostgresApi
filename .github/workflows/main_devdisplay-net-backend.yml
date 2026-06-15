@@ -3,7 +3,7 @@ name: Build and deploy ASP.Net Core app to Azure Web App - DevDisplay-NET-Backen
 on:
   push:
     branches:
-      - Azure
+      - Testing-out-with-background
   workflow_dispatch:
 
 jobs:
@@ -69,6 +69,7 @@ jobs:
           app-name: DevDisplay-NET-Backend
           slot-name: Production
           package: ./publish
+          
 
 
 
