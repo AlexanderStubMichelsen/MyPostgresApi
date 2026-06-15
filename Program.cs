@@ -95,8 +95,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:5173",
-            "https://devdisplay.online",
-            "https://www.devdisplay.online",
+            "https://machinemal.eu/",
+            "https://www.machinemal.eu/",
             "https://witty-sand-0aef9a403.2.azurestaticapps.net"
         )
         .AllowAnyHeader()
