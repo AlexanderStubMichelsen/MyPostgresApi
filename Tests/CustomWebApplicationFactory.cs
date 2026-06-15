@@ -16,6 +16,9 @@ namespace MyPostgresApi.Tests
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseContentRoot(Directory.GetCurrentDirectory());
+            builder.ConfigureLogging(logging => logging.ClearProviders());
+
             builder.ConfigureServices(services =>
             {
                 // Remove the existing DbContext registration
@@ -38,15 +41,23 @@ namespace MyPostgresApi.Tests
 
         protected override void Dispose(bool disposing)
         {
+            base.Dispose(disposing);
+
             if (disposing)
             {
                 // Clean up test database
                 if (File.Exists(_testDbPath))
                 {
-                    File.Delete(_testDbPath);
+                    try
+                    {
+                        File.Delete(_testDbPath);
+                    }
+                    catch (IOException)
+                    {
+                        // SQLite can briefly hold the file on Windows after host disposal.
+                    }
                 }
             }
-            base.Dispose(disposing);
         }
     }
 

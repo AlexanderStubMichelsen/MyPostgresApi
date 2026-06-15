@@ -61,6 +61,9 @@ jobs:
             --settings \
               ASPNETCORE_ENVIRONMENT=Production \
               JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+              Cors__AllowedOrigins__0="https://machinemal.eu" \
+              Cors__AllowedOrigins__1="https://www.machinemal.eu" \
+              Cors__AllowedOrigins__2="https://witty-sand-0aef9a403.2.azurestaticapps.net" \
               WEBSITES_PORT=8080
 
       - name: Deploy to Azure WebApp

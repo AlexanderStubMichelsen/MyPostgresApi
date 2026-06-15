@@ -65,13 +65,16 @@ var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
     ?? throw new InvalidOperationException("JWT_SECRET_KEY environment variable is missing.");
 
 // 🔧 Configure Kestrel for Azure App Service
-builder.WebHost.ConfigureKestrel(options =>
+if (!builder.Environment.IsEnvironment("Testing"))
 {
-    var port = Environment.GetEnvironmentVariable("PORT") 
-              ?? Environment.GetEnvironmentVariable("WEBSITES_PORT") 
-              ?? "8080";
-    options.ListenAnyIP(int.Parse(port));
-});
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        var port = Environment.GetEnvironmentVariable("PORT")
+                  ?? Environment.GetEnvironmentVariable("WEBSITES_PORT")
+                  ?? "8080";
+        options.ListenAnyIP(int.Parse(port));
+    });
+}
 
 // 🧠 Database context - Force SQLite usage
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -89,16 +92,24 @@ builder.Services.AddHealthChecks()
     .AddSqlite(connectionString, name: "sqlite", failureStatus: HealthStatus.Degraded);
 
 // 🌍 CORS
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()
+    ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .ToArray()
+    ?? new[]
+    {
+        "http://localhost:5173",
+        "https://machinemal.eu",
+        "https://www.machinemal.eu",
+        "https://witty-sand-0aef9a403.2.azurestaticapps.net"
+    };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins(
-            "http://localhost:5173",
-            "https://machinemal.eu",
-            "https://www.machinemal.eu",
-            "https://witty-sand-0aef9a403.2.azurestaticapps.net"
-        )
+        policy.WithOrigins(allowedOrigins)
         .AllowAnyHeader()
         .AllowAnyMethod()
         .AllowCredentials();
