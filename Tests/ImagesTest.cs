@@ -12,6 +12,7 @@ namespace MyPostgresApi.Tests
     [Collection("NonParallelCollection")]
     public class ImagesTest : IClassFixture<CustomWebApplicationFactory>, IAsyncLifetime
     {
+        private readonly CustomWebApplicationFactory _factory;
         private readonly HttpClient _client;
         private readonly AppDbContext _dbContext;
         private readonly IServiceScope _scope;
@@ -19,6 +20,7 @@ namespace MyPostgresApi.Tests
 
         public ImagesTest(CustomWebApplicationFactory factory, ITestOutputHelper output)
         {
+            _factory = factory;
             _client = factory.CreateClient();
             _scope = factory.Services.CreateScope();
             _dbContext = _scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -46,7 +48,7 @@ namespace MyPostgresApi.Tests
         }
 
         [Fact]
-        public async Task SaveImage_WithoutAuthentication_ReturnsUnauthorized()
+        public async Task SaveImage_WithoutAuthentication_SavesForGuestUser()
         {
             var image = new
             {
@@ -57,34 +59,104 @@ namespace MyPostgresApi.Tests
             };
 
             var response = await _client.PostAsJsonAsync("/api/images/save", image);
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            response.EnsureSuccessStatusCode();
+
+            var guestUser = await _dbContext.Users.FirstOrDefaultAsync(u =>
+                u.Email != null && u.Email.StartsWith("guest-") && u.Email.EndsWith("@guest.machinemal.local"));
+            Assert.NotNull(guestUser);
+
+            var savedImage = await _dbContext.SavedImages.FirstOrDefaultAsync(i =>
+                i.UserId == guestUser.Id && i.ImageUrl == image.ImageUrl);
+
+            Assert.NotNull(savedImage);
+            Assert.Equal(image.Title, savedImage.Title);
         }
 
         [Fact]
-        public async Task GetImages_WithoutAuthentication_ReturnsUnauthorized()
+        public async Task GetImages_WithoutAuthentication_ReturnsEmptyGuestList()
         {
             var response = await _client.GetAsync("/api/images/mine");
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            response.EnsureSuccessStatusCode();
+
+            var content = await response.Content.ReadAsStringAsync();
+            var images = JsonSerializer.Deserialize<JsonElement>(content);
+
+            Assert.Equal(JsonValueKind.Array, images.ValueKind);
+            Assert.Equal(0, images.GetArrayLength());
         }
 
         [Fact]
-        public async Task DeleteImage_WithoutAuthentication_ReturnsUnauthorized()
+        public async Task DeleteImage_WithoutAuthentication_ReturnsNotFound()
         {
-            var nonexistentId = Guid.NewGuid();
+            var nonexistentId = 999999;
             var deleteResponse = await _client.DeleteAsync($"/api/images/{nonexistentId}");
-            Assert.Equal(HttpStatusCode.Unauthorized, deleteResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, deleteResponse.StatusCode);
         }
 
         [Fact]
-        public async Task ImageUserCount_WithoutAuthentication_HandlesCorrectly()
+        public async Task ImageUserCount_WithoutAuthentication_ReturnsSuccess()
         {
             var request = new { ImageUrl = "https://example.com/test.jpg" };
             var response = await _client.PostAsJsonAsync("/api/images/image-user-count", request);
-            
-            // Accept any response - just testing the endpoint exists
-            Assert.True(response.StatusCode == HttpStatusCode.Unauthorized || 
-                       response.StatusCode == HttpStatusCode.NotFound ||
-                       response.IsSuccessStatusCode);
+            response.EnsureSuccessStatusCode();
+        }
+
+        [Fact]
+        public async Task GuestUser_CanFetchAndDeleteOwnSavedImage()
+        {
+            var image = new
+            {
+                ImageUrl = "https://example.com/guest-owned.jpg",
+                Title = "Guest Owned Image",
+                Photographer = "Guest Photographer",
+                SourceLink = "https://source.com/guest-owned"
+            };
+
+            var saveResponse = await _client.PostAsJsonAsync("/api/images/save", image);
+            saveResponse.EnsureSuccessStatusCode();
+
+            var saveContent = await saveResponse.Content.ReadAsStringAsync();
+            var saved = JsonSerializer.Deserialize<JsonElement>(saveContent);
+            var imageId = saved.GetProperty("id").GetInt32();
+
+            var mineResponse = await _client.GetAsync("/api/images/mine");
+            mineResponse.EnsureSuccessStatusCode();
+
+            var mineContent = await mineResponse.Content.ReadAsStringAsync();
+            var images = JsonSerializer.Deserialize<JsonElement>(mineContent);
+
+            Assert.Equal(JsonValueKind.Array, images.ValueKind);
+            Assert.Single(images.EnumerateArray());
+            Assert.Equal(image.ImageUrl, images[0].GetProperty("imageUrl").GetString());
+
+            var deleteResponse = await _client.DeleteAsync($"/api/images/{imageId}");
+            deleteResponse.EnsureSuccessStatusCode();
+
+            var deletedImage = await _dbContext.SavedImages.FindAsync(imageId);
+            Assert.Null(deletedImage);
+        }
+
+        [Fact]
+        public async Task DifferentGuestUsers_CanSaveSameImage()
+        {
+            var firstGuestClient = _factory.CreateClient();
+            var secondGuestClient = _factory.CreateClient();
+            var image = new
+            {
+                ImageUrl = "https://example.com/shared-guest-image.jpg",
+                Title = "Shared Guest Image",
+                Photographer = "Guest Photographer",
+                SourceLink = "https://source.com/shared"
+            };
+
+            var firstResponse = await firstGuestClient.PostAsJsonAsync("/api/images/save", image);
+            var secondResponse = await secondGuestClient.PostAsJsonAsync("/api/images/save", image);
+
+            firstResponse.EnsureSuccessStatusCode();
+            secondResponse.EnsureSuccessStatusCode();
+
+            var savedCount = await _dbContext.SavedImages.CountAsync(i => i.ImageUrl == image.ImageUrl);
+            Assert.Equal(2, savedCount);
         }
 
         [Fact]
