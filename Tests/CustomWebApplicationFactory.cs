@@ -14,6 +14,15 @@ namespace MyPostgresApi.Tests
     {
         private string _testDbPath = Path.Combine(Path.GetTempPath(), $"test_{Guid.NewGuid()}.db");
 
+        // Program.cs reads JWT_SECRET_KEY at startup, before ConfigureServices runs,
+        // so it must be set before the app is built.
+        static CustomWebApplicationFactory()
+        {
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("JWT_SECRET_KEY")))
+                Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "test-jwt-secret-key-for-testing-purposes-only");
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseContentRoot(Directory.GetCurrentDirectory());

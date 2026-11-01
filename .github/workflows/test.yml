@@ -16,4 +16,7 @@ jobs:
         with:
           dotnet-version: "8.x"
       - name: Test
+        env:
+          JWT_SECRET_KEY: test-jwt-secret-key-for-testing-purposes-only
+          ASPNETCORE_ENVIRONMENT: Testing
         run: dotnet test MyPostgresApi.csproj --logger "console;verbosity=normal"
