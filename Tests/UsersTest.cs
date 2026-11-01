@@ -254,6 +254,111 @@ namespace MyPostgresApi.Tests
             Assert.NotEqual(999999, result.GetProperty("userDto").GetProperty("id").GetInt32());
         }
 
+        private async Task<HttpResponseMessage> SendWithTokenAsync(HttpMethod method, string url, string token, object body)
+        {
+            using var request = new HttpRequestMessage(method, url) { Content = JsonContent.Create(body) };
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            return await _client.SendAsync(request);
+        }
+
+        [Fact]
+        public async Task DeleteUser_DeletesOwnAccount_WithPasswordOnly()
+        {
+            // The frontend sends only { password } and relies on the token
+            var (_, token) = await SignUpAsync("Leaver", "leaver@example.com");
+
+            var response = await SendWithTokenAsync(HttpMethod.Delete, "/api/users/delete", token, new { password = "Test1234" });
+
+            response.EnsureSuccessStatusCode();
+            var login = await _client.PostAsJsonAsync("/api/users/login", new { Email = "leaver@example.com", Password = "Test1234" });
+            Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteUser_WrongPassword_IsRejected()
+        {
+            var (_, token) = await SignUpAsync("Stayer", "stayer@example.com");
+
+            var response = await SendWithTokenAsync(HttpMethod.Delete, "/api/users/delete", token, new { password = "WrongPassword" });
+
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteUser_CannotDeleteSomeoneElse_EvenWithTheirEmail()
+        {
+            await SignUpAsync("Victim", "victim2@example.com");
+            var (_, attackerToken) = await SignUpAsync("Attacker", "attacker2@example.com");
+
+            // Attacker supplies the victim's email; the API must use the token's user instead
+            await SendWithTokenAsync(HttpMethod.Delete, "/api/users/delete", attackerToken,
+                new { email = "victim2@example.com", password = "Test1234" });
+
+            var victimLogin = await _client.PostAsJsonAsync("/api/users/login", new { Email = "victim2@example.com", Password = "Test1234" });
+            victimLogin.EnsureSuccessStatusCode();
+        }
+
+        [Theory]
+        [InlineData("short")]          // too short
+        [InlineData("")]
+        public async Task SignUp_RejectsWeakPasswords(string password)
+        {
+            var response = await _client.PostAsJsonAsync("/api/users",
+                new { Name = "Weak", Email = "weak@example.com", Password = password });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("not-an-email")]
+        [InlineData("")]
+        [InlineData("guest-0123456789abcdef0123456789abcdef@guest.machinemal.local")]
+        public async Task SignUp_RejectsInvalidOrReservedEmails(string email)
+        {
+            var response = await _client.PostAsJsonAsync("/api/users",
+                new { Name = "Bad", Email = email, Password = "Test1234" });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SignUp_RequiresName()
+        {
+            var response = await _client.PostAsJsonAsync("/api/users",
+                new { Email = "noname@example.com", Password = "Test1234" });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task Email_IsCaseInsensitive_ForDuplicatesAndLogin()
+        {
+            await SignUpAsync("Case", "Case.Test@Example.com");
+
+            var duplicate = await _client.PostAsJsonAsync("/api/users",
+                new { Name = "Case2", Email = "case.test@example.com", Password = "Test1234" });
+            Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+
+            var login = await _client.PostAsJsonAsync("/api/users/login",
+                new { Email = "CASE.TEST@EXAMPLE.COM", Password = "Test1234" });
+            login.EnsureSuccessStatusCode();
+        }
+
+        [Fact]
+        public async Task ChangePassword_RejectsWeakNewPassword()
+        {
+            var (_, token) = await SignUpAsync("Changer", "changer@example.com");
+
+            var response = await SendWithTokenAsync(HttpMethod.Put, "/api/users/changepassword", token,
+                new { OldPassword = "Test1234", NewPassword = "123" });
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task Login_WithMissingFields_ReturnsUnauthorized_NotServerError()
+        {
+            var response = await _client.PostAsJsonAsync("/api/users/login", new { });
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
         [Fact]
         public async Task CreateUser_WithSpecialCharacters_HandlesCorrectly()
         {

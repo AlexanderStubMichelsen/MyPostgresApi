@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 using MyPostgresApi.Models;
 using MyPostgresApi.DTOs;
 
@@ -12,7 +13,7 @@ namespace MyPostgresApi.Controllers
     public class ImagesController : ControllerBase
     {
         private const string GuestUserCookieName = "guest_user_token";
-        private const string GuestUserEmailDomain = "guest.machinemal.local";
+        private const string GuestUserEmailDomain = InputRules.GuestEmailDomain;
         private const string GuestUserName = "Guest";
 
         private readonly AppDbContext _context;
@@ -29,13 +30,22 @@ namespace MyPostgresApi.Controllers
             return NoContent();
         }
 
+        // Anonymous callers get a guest account, so this is rate limited per IP
+        // to stop anyone from mass-creating accounts and rows.
         [AllowAnonymous]
+        [EnableRateLimiting("ImageSavePolicy")]
         [HttpPost("save")]
         public async Task<IActionResult> SaveImageForUser([FromBody] SavedImageDto dto)
         {
+            if (!InputRules.IsHttpUrl(dto.ImageUrl))
+                return BadRequest("ImageUrl must be an http(s) URL.");
+            if (!string.IsNullOrEmpty(dto.SourceLink) && !InputRules.IsHttpUrl(dto.SourceLink))
+                return BadRequest("SourceLink must be an http(s) URL.");
+            if ((dto.Title?.Length ?? 0) > InputRules.MaxTextLength || (dto.Photographer?.Length ?? 0) > InputRules.MaxTextLength)
+                return BadRequest($"Title and photographer must be at most {InputRules.MaxTextLength} characters.");
+
             int userId = await GetImageOwnerUserIdAsync(createGuestUser: true)
                 ?? throw new InvalidOperationException("Could not resolve image owner.");
-            Console.WriteLine("Image owner user ID: " + userId);
 
             // Check if the user allready has this image saved
             var existingImage = await _context.SavedImages
@@ -51,9 +61,9 @@ namespace MyPostgresApi.Controllers
                 {
                     UserId = userId,
                     ImageUrl = dto.ImageUrl,
-                    Title = dto.Title,
-                    Photographer = dto.Photographer,
-                    SourceLink = dto.SourceLink,
+                    Title = dto.Title ?? "",
+                    Photographer = dto.Photographer ?? "",
+                    SourceLink = dto.SourceLink ?? "",
                     SavedAt = DateTime.UtcNow
                 };
 
@@ -102,7 +112,9 @@ namespace MyPostgresApi.Controllers
             {
                 Name = GuestUserName,
                 Email = guestUserEmail,
-                Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"))
+                // Guests never log in with a password; a low work factor keeps
+                // creating them cheap (default BCrypt cost is ~100 ms of CPU each)
+                Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"), workFactor: 4)
             };
 
             _context.Users.Add(guestUser);
@@ -183,6 +195,7 @@ namespace MyPostgresApi.Controllers
         }
 
         [AllowAnonymous]
+        [EnableRateLimiting("ImageSavePolicy")]
         [HttpPost("image-user-count")]
         public async Task<ActionResult<int>> GetUsersCountForImage([FromBody] ImageUrlRequest request)
         {

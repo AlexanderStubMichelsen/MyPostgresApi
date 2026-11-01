@@ -46,41 +46,48 @@ public class UsersController : ControllerBase, IUsersController
         return tokenHandler.WriteToken(token);
     }
 
+    // Emails are stored lower-case; older rows may not be, so compare case-insensitively
+    private Task<User?> FindByEmailAsync(string normalizedEmail) =>
+        _context.Users.FirstOrDefaultAsync(u => u.Email!.ToLower() == normalizedEmail);
+
+    private async Task<User?> CurrentUserAsync()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(claim, out var id) ? await _context.Users.FindAsync(id) : null;
+    }
+
     [EnableRateLimiting("SignUpPolicy")]
     [HttpPost]
     public async Task<ActionResult<object>> PostUser(User user)
     {
-        if (string.IsNullOrEmpty(user.Password))
-            return BadRequest("Password is required.");
+        var email = InputRules.NormalizeEmail(user.Email);
+        if (email == null || InputRules.IsGuestEmail(email))
+            return BadRequest("A valid email address is required.");
 
-        // The database assigns ids; never accept one from the client
-        user.Id = 0;
+        var problem = InputRules.NameProblem(user.Name) ?? InputRules.PasswordProblem(user.Password);
+        if (problem != null)
+            return BadRequest(problem);
 
-        // Check if the user already exists (using email or other unique identifier)
-        var existingUser = await _context.Users
-                                          .FirstOrDefaultAsync(u => u.Email == user.Email);
-
-        if (existingUser != null)
+        if (await FindByEmailAsync(email) != null)
         {
-            // Return a JSON response with a message and HTTP status 409
             return Conflict(new { message = "A user with this email already exists." });
         }
 
-        // Hash the password
-        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+        var newUser = new User
+        {
+            // Id is assigned by the database; never accept one from the client
+            Name = user.Name!.Trim(),
+            Email = email,
+            Password = BCrypt.Net.BCrypt.HashPassword(user.Password)
+        };
 
-        // Add the new user to the context
-        _context.Users.Add(user);
+        _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        // Generate JWT token
-        var token = GenerateJwtToken(user);
+        var token = GenerateJwtToken(newUser);
+        var userDto = newUser.ToDto();
 
-        // Map the user to a DTO (Data Transfer Object)
-        var userDto = user.ToDto();
-
-        // Return the response with the created user and token
-        return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new
+        return CreatedAtAction(nameof(GetUser), new { id = newUser.Id }, new
         {
             userDto,
             token
@@ -109,53 +116,56 @@ public class UsersController : ControllerBase, IUsersController
     // There is deliberately no "list all users" endpoint.
 
     [Authorize]
+    [EnableRateLimiting("AuthPolicy")]
     [HttpPut("update")]
     public async Task<IActionResult> UpdateCurrentUser([FromBody] User updatedUser)
     {
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-
-        var user = await _context.Users.FindAsync(userId);
+        var user = await CurrentUserAsync();
         if (user == null)
         {
             return NotFound("User not found.");
         }
 
-        // ✅ Require correct password before updating name
+        // Require correct password before updating name
         if (string.IsNullOrEmpty(updatedUser.Password))
         {
             return BadRequest("Password is required to update profile.");
         }
 
-        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(updatedUser.Password, user.Password);
-        if (!isPasswordValid)
+        if (!BCrypt.Net.BCrypt.Verify(updatedUser.Password, user.Password))
         {
             return Unauthorized("Incorrect password.");
         }
 
-        // ✅ Update name only if provided
-        if (!string.IsNullOrEmpty(updatedUser.Name))
+        if (string.IsNullOrEmpty(updatedUser.Name))
         {
-            user.Name = updatedUser.Name;
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "User name updated successfully" });
+            return BadRequest("Nothing to update.");
         }
 
-        return BadRequest("Nothing to update.");
+        var problem = InputRules.NameProblem(updatedUser.Name);
+        if (problem != null)
+            return BadRequest(problem);
+
+        user.Name = updatedUser.Name.Trim();
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "User name updated successfully" });
     }
 
     [Authorize]
+    [EnableRateLimiting("AuthPolicy")]
     [HttpPut("changepassword")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-
-        var user = await _context.Users.FindAsync(userId);
+        var user = await CurrentUserAsync();
         if (user == null)
             return NotFound("User not found");
 
-        bool oldPasswordValid = BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password);
-        if (!oldPasswordValid)
+        if (string.IsNullOrEmpty(request.OldPassword) || !BCrypt.Net.BCrypt.Verify(request.OldPassword, user.Password))
             return Unauthorized("Old password is incorrect");
+
+        var problem = InputRules.PasswordProblem(request.NewPassword);
+        if (problem != null)
+            return BadRequest(problem);
 
         user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         await _context.SaveChangesAsync();
@@ -163,16 +173,18 @@ public class UsersController : ControllerBase, IUsersController
         return Ok(new { message = "Password updated successfully!" });
     }
 
+    // Deletes the logged-in user's own account (identified by the token), after
+    // re-checking the password. Saved images are removed by cascade delete.
     [HttpDelete("delete")]
     [Authorize]
+    [EnableRateLimiting("AuthPolicy")]
     public async Task<IActionResult> DeleteUser([FromBody] DeleteUserRequest request)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+        var user = await CurrentUserAsync();
         if (user == null)
             return NotFound(new { message = "User not found" });
 
-        bool passwordMatch = BCrypt.Net.BCrypt.Verify(request.Password, user.Password);
-        if (!passwordMatch)
+        if (string.IsNullOrEmpty(request.Password) || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             return Unauthorized(new { message = "Invalid credentials" });
 
         _context.Users.Remove(user);
@@ -181,27 +193,21 @@ public class UsersController : ControllerBase, IUsersController
         return Ok(new { message = "User deleted successfully" });
     }
 
+    [EnableRateLimiting("AuthPolicy")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] User loginRequest)
     {
-        Console.WriteLine($"🔍 Login attempt for: {loginRequest.Email}");
+        var email = InputRules.NormalizeEmail(loginRequest.Email);
+        var user = email == null ? null : await FindByEmailAsync(email);
 
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == loginRequest.Email);
-        if (user == null)
-        {
-            return Unauthorized(new { error = "Invalid email or password." });
-        }
-
-        bool passwordMatches = BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password);
-        if (!passwordMatches)
+        if (user == null || string.IsNullOrEmpty(loginRequest.Password)
+            || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.Password))
         {
             return Unauthorized(new { error = "Invalid email or password." });
         }
 
         var token = GenerateJwtToken(user);
         var userDto = user.ToDto();
-
-        Console.WriteLine($"✅ Login: {userDto.Id} - {userDto.Email}");
 
         return Ok(new
         {
@@ -210,10 +216,4 @@ public class UsersController : ControllerBase, IUsersController
             token
         });
     }
-
-    private bool UserExists(int id)
-    {
-        return _context.Users.Any(e => e.Id == id);
-    }
 }
-

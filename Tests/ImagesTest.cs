@@ -251,5 +251,24 @@ namespace MyPostgresApi.Tests
             Assert.Contains(".", token1);
             Assert.Contains(".", token2);
         }
+    
+        [Theory]
+        [InlineData("javascript:alert(1)")]
+        [InlineData("not a url")]
+        [InlineData("")]
+        public async Task SaveImage_RejectsNonHttpImageUrl(string url)
+        {
+            var response = await _client.PostAsJsonAsync("/api/images/save",
+                new { ImageUrl = url, Title = "t", Photographer = "p", SourceLink = "https://source.com" });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task SaveImage_RejectsJavascriptSourceLink()
+        {
+            var response = await _client.PostAsJsonAsync("/api/images/save",
+                new { ImageUrl = "https://example.com/x.jpg", Title = "t", Photographer = "p", SourceLink = "javascript:alert(1)" });
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
     }
 }

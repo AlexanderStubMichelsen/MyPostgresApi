@@ -144,10 +144,33 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // Login, password change, profile update and account deletion all check a
+    // password, so they share a limit against password guessing.
+    options.AddPolicy("AuthPolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    // Anonymous image saves create guest accounts; cap them per IP.
+    options.AddPolicy("ImageSavePolicy", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        await context.HttpContext.Response.WriteAsync("Too many sign-up attempts. Try again later.", token);
+        await context.HttpContext.Response.WriteAsync("Too many requests. Try again in a minute.", token);
     };
 });
 
