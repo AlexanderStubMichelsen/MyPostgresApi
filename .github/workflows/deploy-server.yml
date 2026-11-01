@@ -1,0 +1,56 @@
+name: Deploy API to server
+
+on:
+  push:
+    branches: [server]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.x"
+
+      # Framework-dependent: the server has aspnetcore-runtime-8.0 installed
+      - name: Publish
+        run: dotnet publish MyPostgresApi.csproj -c Release -r linux-x64 --self-contained false -o ./publish
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+
+      # The SQLite database lives in /var/lib/machinemal-api, outside the app
+      # folder, so --delete here never touches user data.
+      - name: Upload release
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key" \
+            publish/ "deploy@${{ secrets.SERVER_HOST }}:/opt/machinemal-api/app/"
+
+      - name: Write secrets and restart
+        env:
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+        run: |
+          # Over stdin so the secret never appears in a command line or log
+          printf 'JWT_SECRET_KEY=%s\n' "$JWT_SECRET_KEY" |
+            ssh -i ~/.ssh/deploy_key "deploy@${{ secrets.SERVER_HOST }}" \
+              'umask 077 && cat > /etc/machinemal/api.env'
+
+          ssh -i ~/.ssh/deploy_key "deploy@${{ secrets.SERVER_HOST }}" '
+            sudo systemctl restart machinemal-api
+            for i in $(seq 1 30); do
+              curl -fsS -o /dev/null http://127.0.0.1:5000/health && echo healthy && exit 0
+              sleep 2
+            done
+            echo "API did not become healthy"; sudo journalctl -u machinemal-api -n 50 --no-pager; exit 1
+          '
