@@ -1,0 +1,19 @@
+name: Test
+
+# Runs the test suite on every branch except `server` (which tests as part of deploying)
+on:
+  push:
+    branches-ignore: [server]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.x"
+      - name: Test
+        run: dotnet test MyPostgresApi.csproj --logger "console;verbosity=normal"

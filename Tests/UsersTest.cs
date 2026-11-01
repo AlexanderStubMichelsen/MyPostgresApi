@@ -189,24 +189,69 @@ namespace MyPostgresApi.Tests
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
 
-        [Fact]
-        public async Task GetUsers_ReturnsSuccessOrUnauthorized()
+        // Signs up a user and returns (id, token) from the signup response
+        private async Task<(int Id, string Token)> SignUpAsync(string name, string email)
         {
-            // Create a user first
-            var user = new
-            {
-                Name = "Test User",
-                Email = "gettest@example.com", 
-                Password = "Test1234"
-            };
+            var response = await _client.PostAsJsonAsync("/api/users",
+                new { Name = name, Email = email, Password = "Test1234" });
+            response.EnsureSuccessStatusCode();
 
-            await _client.PostAsJsonAsync("/api/users", user);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var id = result.GetProperty("userDto").GetProperty("id").GetInt32();
+            var token = result.GetProperty("token").GetString()!;
+            return (id, token);
+        }
 
-            var response = await _client.GetAsync("/api/users");
-            
-            // Accept either success or unauthorized
-            Assert.True(response.IsSuccessStatusCode || 
-                       response.StatusCode == HttpStatusCode.Unauthorized);
+        private async Task<HttpResponseMessage> GetWithTokenAsync(string url, string token)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            return await _client.SendAsync(request);
+        }
+
+        [Fact]
+        public async Task ListingAllUsers_IsNotPossible_EvenWhenLoggedIn()
+        {
+            var (_, token) = await SignUpAsync("Lister", "lister@example.com");
+
+            var response = await GetWithTokenAsync("/api/users", token);
+
+            Assert.False(response.IsSuccessStatusCode);
+        }
+
+        [Fact]
+        public async Task GetUser_ReturnsOwnAccount()
+        {
+            var (id, token) = await SignUpAsync("Self", "self@example.com");
+
+            var response = await GetWithTokenAsync($"/api/users/{id}", token);
+
+            response.EnsureSuccessStatusCode();
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("self@example.com", body.GetProperty("email").GetString());
+        }
+
+        [Fact]
+        public async Task GetUser_CannotReadAnotherUsersAccount()
+        {
+            var (victimId, _) = await SignUpAsync("Victim", "victim@example.com");
+            var (_, attackerToken) = await SignUpAsync("Attacker", "attacker@example.com");
+
+            var response = await GetWithTokenAsync($"/api/users/{victimId}", attackerToken);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.DoesNotContain("victim@example.com", await response.Content.ReadAsStringAsync());
+        }
+
+        [Fact]
+        public async Task SignUp_IgnoresClientSuppliedId()
+        {
+            var response = await _client.PostAsJsonAsync("/api/users",
+                new { Id = 999999, Name = "Chooser", Email = "chooser@example.com", Password = "Test1234" });
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.NotEqual(999999, result.GetProperty("userDto").GetProperty("id").GetInt32());
         }
 
         [Fact]

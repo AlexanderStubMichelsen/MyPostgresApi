@@ -53,6 +53,9 @@ public class UsersController : ControllerBase, IUsersController
         if (string.IsNullOrEmpty(user.Password))
             return BadRequest("Password is required.");
 
+        // The database assigns ids; never accept one from the client
+        user.Id = 0;
+
         // Check if the user already exists (using email or other unique identifier)
         var existingUser = await _context.Users
                                           .FirstOrDefaultAsync(u => u.Email == user.Email);
@@ -84,10 +87,16 @@ public class UsersController : ControllerBase, IUsersController
         });
     }
 
+    // Users may only read their own account. Anyone can sign up, so letting any
+    // logged-in user read other accounts would expose every user's email.
+    // Other ids return 404 (not 403) so ids can't be probed for existence.
     [Authorize]
     [HttpGet("{id}")]
     public async Task<ActionResult<object>> GetUser(int id)
     {
+        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (currentUserId != id.ToString()) return NotFound();
+
         var user = await _context.Users
             .Where(u => u.Id == id)
             .Select(u => new { u.Id, u.Name, u.Email })
@@ -97,16 +106,7 @@ public class UsersController : ControllerBase, IUsersController
         return Ok(user);
     }
 
-    [Authorize]
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetUsers()
-    {
-        var users = await _context.Users
-            .Select(u => new { u.Id, u.Name, u.Email })
-            .ToListAsync();
-
-        return Ok(users);
-    }
+    // There is deliberately no "list all users" endpoint.
 
     [Authorize]
     [HttpPut("update")]
