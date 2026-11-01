@@ -21,6 +21,9 @@ jobs:
 
       # A failing test stops the deploy
       - name: Test
+        env:
+          JWT_SECRET_KEY: test-jwt-secret-key-for-testing-purposes-only
+          ASPNETCORE_ENVIRONMENT: Testing
         run: dotnet test MyPostgresApi.csproj
 
       # Framework-dependent: the server has aspnetcore-runtime-8.0 installed
