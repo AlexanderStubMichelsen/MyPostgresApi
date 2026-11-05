@@ -101,8 +101,7 @@ var allowedOrigins = builder.Configuration
     {
         "http://localhost:5173",
         "https://machinemal.eu",
-        "https://www.machinemal.eu",
-        "https://witty-sand-0aef9a403.2.azurestaticapps.net"
+        "https://www.machinemal.eu"
     };
 
 builder.Services.AddCors(options =>
