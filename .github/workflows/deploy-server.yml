@@ -26,9 +26,9 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Testing
         run: dotnet test MyPostgresApi.csproj
 
-      # Framework-dependent: the server has aspnetcore-runtime-8.0 installed
+      # Self-contained: carries its own .NET runtime, so the server needs none
       - name: Publish
-        run: dotnet publish MyPostgresApi.csproj -c Release -r linux-x64 --self-contained false -o ./publish
+        run: dotnet publish MyPostgresApi.csproj -c Release -r linux-x64 --self-contained true -o ./publish
 
       - name: Set up SSH
         run: |
