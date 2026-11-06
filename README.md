@@ -1,150 +1,59 @@
 # MyPostgresApi
 
-An ASP.NET Core 8 Web API that manages users, saved images and public board posts. The
-application now ships with Entity Framework Core + SQLite so that it can run on a
-single-file database when hosted on Azure App Service or other PaaS platforms.
+The ASP.NET Core 8 Web API behind **[machinemal.eu](https://machinemal.eu)**: user accounts and saved images, stored in SQLite.
+
+(The name dates from when it used PostgreSQL; it has run on SQLite since 2025.)
+
+## Endpoints
+
+All routes are under `/api`.
+
+| Method | Route | Auth | What it does |
+|---|---|---|---|
+| POST | `/users` | – | Sign up (rate limited) |
+| POST | `/users/login` | – | Log in, returns a JWT (rate limited) |
+| GET | `/users/{id}` | JWT | Your own account only |
+| PUT | `/users/update` | JWT + password | Change your name |
+| PUT | `/users/changepassword` | JWT + old password | Change password (min. 8 characters) |
+| DELETE | `/users/delete` | JWT + password | Delete your own account |
+| POST | `/images/save` | optional | Save an image; anonymous visitors get a guest account via cookie |
+| GET | `/images/mine` | optional | Your saved images |
+| DELETE | `/images/{id}` | optional | Delete one of your saved images |
+| POST | `/images/image-user-count` | – | How many users saved an image |
+| GET | `/health` | – | Health check (outside `/api`) |
+
+**Security:** passwords are hashed with BCrypt, users can only read and change their own data, input is validated (email format, password 8–72 bytes, http(s) URLs only), and login, sign-up and image saving are rate limited per IP.
 
 ## Project layout
 
 ```
-MyPostgresApi/
-├── Controllers/          # API endpoints for users, saved images and board posts
-├── Data/                 # EF Core DbContext
-├── DTOs/                 # Request/response models
-├── Migrations/           # SQLite schema migrations
-├── Models/               # Domain models
-├── Scripts/              # Utility SQL/DDL scripts for SQLite
-├── Tests/                # xUnit integration tests (run against SQLite)
-└── Program.cs            # ASP.NET Core host configuration
+Controllers/   API endpoints (users, images) + shared input rules
+Data/          EF Core DbContext
+DTOs/ Models/  Request/response and domain models
+Migrations/    SQLite schema migrations (applied automatically at startup in Production)
+Tests/         xUnit integration tests against a temporary SQLite database
+Program.cs     Host setup: JWT auth, CORS, rate limiting, health checks
 ```
 
-## Prerequisites
+## Run locally
 
-* .NET 8 SDK
-* SQLite 3 (for inspecting the generated database file)
-* Optional: Azure CLI (`az`) for deployment
+Requires the .NET 8 SDK.
 
-## Local development
+```bash
+echo "JWT_SECRET_KEY=a-long-random-secret-for-local-use" > .env
+dotnet run          # http://localhost:8080, Swagger UI at /swagger in Development
+```
 
-1. Restore packages and build the solution:
-   ```bash
-   dotnet restore
-   dotnet build
-   ```
-2. Create an `.env` file (copy from `.env.example` if you have one) and set:
-   ```bash
-   JWT_SECRET_KEY=replace-with-a-strong-secret
-   SQLITE_PATH=app.db             # optional – defaults to app.db in the project root
-   PORT=8080                      # optional – defaults to 8080 which matches Azure App Service Linux
-   ```
-3. Apply migrations. This creates `app.db` locally:
-   ```bash
-   dotnet ef database update
-   ```
-4. Run the API:
-   ```bash
-   dotnet run
-   ```
-5. Navigate to `http://localhost:8080/swagger` for interactive docs.
+The database is created as `app.db` in the project folder.
 
-## Running the test suite
-
-The integration tests now run against a temporary SQLite database:
+## Tests
 
 ```bash
 dotnet test
 ```
 
-## Migrating data from PostgreSQL to SQLite
+The tests also run in GitHub Actions on every push ([test.yml](.github/workflows/test.yml)), and a failing test stops a deploy.
 
-1. **Export from PostgreSQL (on Linode):**
-   ```bash
-   pg_dump "postgres://user:password@linode-host:5432/database" \
-     --schema=maskinen --data-only --column-inserts \
-     --table=users --table=saved_images --table=board_posts \
-     > postgres-data.sql
-   ```
-2. **Create a fresh SQLite database locally:**
-   ```bash
-   dotnet ef database update
-   ```
-3. **Import the dump into SQLite:**
-   *Install `pgloader` (or `sqlite-utils` from Python) on your workstation, then run one
-   of the tools to translate PostgreSQL inserts into SQLite format.* For example using
-   `pgloader`:
-   ```lisp
-   load database
-     from postgresql://user:password@localhost/database
-     into sqlite:///app.db
-     with include drop, create tables, create indexes;
-   ```
-   Alternatively, use the provided `Scripts/create_board_posts_table.sql` to create tables
-   manually and import CSV files via the `sqlite3` shell (`.mode csv`, `.import ...`).
-4. **Copy `app.db` to your Azure deployment** (see next section). The application runs
-   migrations at startup, so any future schema changes will be applied automatically.
+## Deployment
 
-## Deploying to Azure App Service (Linux)
-
-1. Publish the application:
-   ```bash
-   dotnet publish -c Release -o publish
-   ```
-2. Create Azure resources:
-   ```bash
-   az group create --name MyPostgresApi-rg --location westeurope
-   az appservice plan create --name MyPostgresApi-plan --resource-group MyPostgresApi-rg --sku B1 --is-linux
-   az webapp create --resource-group MyPostgresApi-rg --plan MyPostgresApi-plan --name <your-webapp-name> --runtime "DOTNET:8.0"
-   ```
-3. Configure application settings so the Web App knows where the SQLite file lives:
-   ```bash
-   az webapp config appsettings set \
-     --resource-group MyPostgresApi-rg --name <your-webapp-name> \
-     --settings JWT_SECRET_KEY="<strong-secret>" SQLITE_PATH="/home/site/wwwroot/app.db"
-   ```
-4. Deploy the published artifacts:
-   ```bash
-   az webapp deploy --resource-group MyPostgresApi-rg --name <your-webapp-name> --src-path publish
-   ```
-5. Upload an existing `app.db` (if you migrated data) by using `az webapp ssh` or the
-   Kudu console. Place the database at `/home/site/wwwroot/app.db`.
-
-The application exposes health checks at `/health` and `/health-ui`.
-
-## GitHub Actions deployment pipeline
-
-The `.github/workflows/deploy.yml` workflow now runs on pushes and pull requests that
-target the `Azure` branch. It restores dependencies, builds the solution, runs the test
-suite against SQLite, publishes the application, and saves the published output as a
-pipeline artifact. On branch pushes, the deploy job downloads that artifact and deploys
-it to Azure App Service via the `azure/webapps-deploy@v3` action.
-
-### Required GitHub secrets
-
-Add the following repository secrets so the workflow can authenticate with Azure and
-target the correct Web App:
-
-| Secret | Description |
-| ------ | ----------- |
-| `AZURE_WEBAPP_NAME` | The name of the Azure Web App that hosts this API. |
-| `AZURE_WEBAPP_PUBLISH_PROFILE` | The base64-encoded publish profile for the Web App. Download it from the Azure Portal (`Get publish profile`) and paste the entire XML into the secret. |
-| `AZURE_WEBAPP_SLOT` (optional) | Name of the deployment slot if you deploy somewhere other than Production. When set, also update the workflow input. |
-
-The publish profile includes the resource group, credentials, and FTP endpoints required
-for deployment, so no additional secrets are necessary. Ensure the App Service has the
-`JWT_SECRET_KEY` and `SQLITE_PATH` application settings configured as described above so
-the deployed application can start successfully.
-
-## Observability endpoints
-
-* `GET /health` – machine-readable health check (includes SQLite health probe)
-* `GET /health-ui` – HealthChecks.UI dashboard (disabled in test environment)
-
-Azure App Service surfaces platform metrics through Azure Monitor, so no additional
-Prometheus endpoint is exposed by this API.
-
-## Resources
-
-* `Scripts/create_board_posts_table.sql` – SQLite schema snippet if you need to create
-  tables manually.
-* `app.db` – default SQLite database file generated during development. Delete it if you
-  prefer to recreate from migrations.
+The `server` branch deploys automatically ([deploy-server.yml](.github/workflows/deploy-server.yml)): test → publish a self-contained Linux build → copy it to the server → restart the systemd service → wait for `/health`. The database lives outside the app folder, so deploys never touch user data. `JWT_SECRET_KEY` comes from a repository secret.
